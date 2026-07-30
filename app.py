@@ -14,6 +14,25 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+#=======================================
+
+# ضع كود إخفاء الشريط هنا بعد الـ imports
+st.markdown("""
+    <style>
+    header {visibility: hidden !important;}
+    #MainMenu {visibility: hidden !important;}
+    footer {visibility: hidden !important;}
+    .block-container {
+        padding-top: 1rem !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+
+#==================================
+
+
+
 # ============================================================
 # APP CONFIG
 # ============================================================
