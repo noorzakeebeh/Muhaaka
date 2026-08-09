@@ -1031,4 +1031,46 @@ def page_summary():
 # PAGE: LEADERBOARD
 # ============================================================
 def page_leaderboard():
-    left, c
+    left, center, right = st.columns([1, 3, 1])
+
+    with center:
+        with st.container(border=True, key="card_leaderboard"):
+            render_leaderboard_content(kiosk=False)
+
+            st.write("")
+
+            c1, c2 = st.columns(2)
+            with c1:
+                if st.button("🔄 Refresh Now", use_container_width=True):
+                    st.rerun()
+            with c2:
+                if st.button("⬅️ Back to Home", use_container_width=True):
+                    st.session_state.page = "home"
+                    st.rerun()
+
+
+# ============================================================
+# ROUTER
+# ============================================================
+if st.session_state.page == "home":
+    page_home()
+elif st.session_state.page == "interview":
+    page_interview()
+elif st.session_state.page == "feedback":
+    page_feedback()
+elif st.session_state.page == "summary":
+    page_summary()
+elif st.session_state.page == "leaderboard":
+    page_leaderboard()
+
+# ============================================================
+# FOOTER
+# ============================================================
+st.write("")
+st.markdown("""
+<div class='footer'>
+    <div class='footer-team'>Noor Al Zakeebeh<span class='footer-divider'>|</span>Sara Shbeita<span class='footer-divider'>|</span>Tasneem Abu Thuher</div>
+    <div class='footer-uni'>The Hashemite University</div>
+    <div class='footer-copy'>Muhaaka — AI-powered mock interviews to help students practice with confidence</div>
+</div>
+""", unsafe_allow_html=True)
