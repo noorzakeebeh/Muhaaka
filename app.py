@@ -382,6 +382,12 @@ font-weight:800;
 color:#38BDF8!important;
 }
 
+/* Number-of-questions pills */
+div[data-testid="stSegmentedControl"] label,
+div[role="radiogroup"] label{
+border-radius:999px!important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -536,6 +542,47 @@ def render_leaderboard_content(kiosk: bool = False):
         )
 
 
+def render_question_count_selector() -> int:
+    """
+    Renders the number-of-questions choice as elegant horizontal pill
+    buttons (segmented control) instead of a slider, and returns the
+    selected integer value. Falls back to a horizontal radio group on
+    older Streamlit versions that don't have st.segmented_control.
+    """
+    numeral_emoji = {1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣", 5: "5️⃣"}
+    labels = [
+        f"{numeral_emoji.get(n, n)} {n} Question" + ("s" if n != 1 else "")
+        for n in NUM_QUESTIONS_OPTIONS
+    ]
+    label_by_num = dict(zip(NUM_QUESTIONS_OPTIONS, labels))
+    num_by_label = dict(zip(labels, NUM_QUESTIONS_OPTIONS))
+    current_label = label_by_num.get(st.session_state.num_questions, labels[0])
+
+    st.markdown("**🔢 Number of Questions**")
+
+    if hasattr(st, "segmented_control"):
+        selected_label = st.segmented_control(
+            "Number of Questions",
+            options=labels,
+            default=current_label,
+            label_visibility="collapsed",
+            key="num_questions_pill",
+        )
+        if not selected_label:
+            selected_label = current_label
+    else:
+        selected_label = st.radio(
+            "Number of Questions",
+            options=labels,
+            index=labels.index(current_label),
+            horizontal=True,
+            label_visibility="collapsed",
+            key="num_questions_pill",
+        )
+
+    return num_by_label[selected_label]
+
+
 # ============================================================
 # 🖥️ KIOSK / FULL-SCREEN DISPLAY MODE
 # ------------------------------------------------------------
@@ -572,6 +619,18 @@ st.markdown("<div class='title'>🎤 MUHAAKA</div>", unsafe_allow_html=True)
 st.markdown("<div class='subtitle'>AI Technical Interview Simulator</div>", unsafe_allow_html=True)
 
 # ============================================================
+# SIDEBAR (admin-only helpers — kept out of the visitor-facing pages)
+# ============================================================
+with st.sidebar:
+    with st.expander("⚙️ Admin / Booth Tools", expanded=False):
+        st.caption(
+            "💡 **Kiosk display**: open this app's URL with `?kiosk=1` "
+            "appended (e.g. `your-app-url?kiosk=1`) on an external screen "
+            f"for a full-screen leaderboard that auto-refreshes every "
+            f"{KIOSK_REFRESH_SECONDS}s."
+        )
+
+# ============================================================
 # PAGE: HOME
 # ============================================================
 def page_home():
@@ -586,11 +645,7 @@ def page_home():
                 index=SPECIALIZATIONS.index(st.session_state.specialization),
             )
 
-            num_questions = st.select_slider(
-                "🔢 Number of Questions",
-                options=NUM_QUESTIONS_OPTIONS,
-                value=st.session_state.num_questions,
-            )
+            num_questions = render_question_count_selector()
 
             st.write("")
 
@@ -810,11 +865,6 @@ def page_leaderboard():
             render_leaderboard_content(kiosk=False)
 
             st.write("")
-            st.info(
-                "💡 Booth tip: open this app's URL with `?kiosk=1` at the end "
-                "(e.g. `your-app-url?kiosk=1`) on an external screen for a "
-                "full-screen, auto-refreshing display."
-            )
 
             c1, c2 = st.columns(2)
             with c1:
