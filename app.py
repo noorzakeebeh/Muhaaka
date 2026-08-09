@@ -382,10 +382,62 @@ font-weight:800;
 color:#38BDF8!important;
 }
 
-/* Number-of-questions pills */
-div[data-testid="stSegmentedControl"] label,
-div[role="radiogroup"] label{
-border-radius:999px!important;
+/* Number-of-questions — connected segmented bar */
+.numq-label{
+text-align:center;
+color:#AFC8FF!important;
+font-weight:700;
+font-size:15px;
+margin-bottom:10px;
+letter-spacing:.3px;
+}
+
+.st-key-numq_bar{
+background:#0E1B2A!important;
+border:1px solid #2A4E73!important;
+border-radius:16px!important;
+padding:6px!important;
+box-shadow:none!important;
+margin-bottom:6px!important;
+}
+
+.st-key-numq_bar div[data-testid="stHorizontalBlock"]{
+gap:0!important;
+}
+
+.st-key-numq_bar div[data-testid="column"]{
+padding:0!important;
+}
+
+.st-key-numq_bar div[data-testid="column"] div.stButton>button{
+height:52px!important;
+width:100%!important;
+border-radius:0!important;
+border:1px solid #22344D!important;
+border-left:none!important;
+background:transparent!important;
+color:#AFC8FF!important;
+font-size:18px!important;
+font-weight:700!important;
+box-shadow:none!important;
+transition:.2s!important;
+}
+
+.st-key-numq_bar div[data-testid="column"]:first-child div.stButton>button{
+border-left:1px solid #22344D!important;
+border-top-left-radius:12px!important;
+border-bottom-left-radius:12px!important;
+}
+
+.st-key-numq_bar div[data-testid="column"]:last-child div.stButton>button{
+border-top-right-radius:12px!important;
+border-bottom-right-radius:12px!important;
+}
+
+.st-key-numq_bar div[data-testid="column"] div.stButton>button:hover{
+transform:none!important;
+background:#16283f!important;
+box-shadow:none!important;
 }
 
 </style>
@@ -544,43 +596,41 @@ def render_leaderboard_content(kiosk: bool = False):
 
 def render_question_count_selector() -> int:
     """
-    Renders the number-of-questions choice as elegant horizontal pill
-    buttons (segmented control) instead of a slider, and returns the
-    selected integer value. Falls back to a horizontal radio group on
-    older Streamlit versions that don't have st.segmented_control.
+    Renders the number-of-questions choice as a single connected
+    segmented bar (1 | 2 | 3 | 4 | 5) — plain numbers, no gaps between
+    segments, with the active choice highlighted by a glowing cyan
+    outline. Returns the currently selected integer value.
     """
-    numeral_emoji = {1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣", 5: "5️⃣"}
-    labels = [
-        f"{numeral_emoji.get(n, n)} {n} Question" + ("s" if n != 1 else "")
-        for n in NUM_QUESTIONS_OPTIONS
-    ]
-    label_by_num = dict(zip(NUM_QUESTIONS_OPTIONS, labels))
-    num_by_label = dict(zip(labels, NUM_QUESTIONS_OPTIONS))
-    current_label = label_by_num.get(st.session_state.num_questions, labels[0])
+    current = st.session_state.num_questions
 
-    st.markdown("**🔢 Number of Questions**")
+    st.markdown("<div class='numq-label'>🎚️ Choose Interview Length</div>", unsafe_allow_html=True)
 
-    if hasattr(st, "segmented_control"):
-        selected_label = st.segmented_control(
-            "Number of Questions",
-            options=labels,
-            default=current_label,
-            label_visibility="collapsed",
-            key="num_questions_pill",
-        )
-        if not selected_label:
-            selected_label = current_label
-    else:
-        selected_label = st.radio(
-            "Number of Questions",
-            options=labels,
-            index=labels.index(current_label),
-            horizontal=True,
-            label_visibility="collapsed",
-            key="num_questions_pill",
-        )
+    with st.container(key="numq_bar"):
+        cols = st.columns(len(NUM_QUESTIONS_OPTIONS))
+        for col, n in zip(cols, NUM_QUESTIONS_OPTIONS):
+            with col:
+                if st.button(str(n), key=f"numq_btn_{n}", use_container_width=True):
+                    st.session_state.num_questions = n
+                    current = n
 
-    return num_by_label[selected_label]
+    # Highlight whichever segment is currently selected with a glowing outline.
+    st.markdown(
+        f"""
+        <style>
+        .st-key-numq_btn_{current} button{{
+            background:#0f2f45!important;
+            border-color:#38BDF8!important;
+            color:#8FD3FF!important;
+            box-shadow:0 0 14px rgba(56,189,248,.55), inset 0 0 0 1px #38BDF8!important;
+            position:relative!important;
+            z-index:2!important;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    return current
 
 
 # ============================================================
