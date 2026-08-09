@@ -22,6 +22,9 @@ st.set_page_config(
 # ============================================================
 DEFAULT_NUM_QUESTIONS = 3
 NUM_QUESTIONS_OPTIONS = [1, 2, 3, 4, 5]
+# Angular position (degrees, CSS rotate convention) of each number on the radial dial,
+# spaced 72° apart starting at the top and going clockwise.
+ANGLE_BY_NUM = {1: -90, 2: -18, 3: 54, 4: 126, 5: 198}
 
 LEADERBOARD_FILE = "leaderboard.json"
 LEADERBOARD_TOP_N = 5
@@ -382,62 +385,107 @@ font-weight:800;
 color:#38BDF8!important;
 }
 
-/* Number-of-questions — connected segmented bar */
+/* Number-of-questions — radial dial selector */
 .numq-label{
 text-align:center;
 color:#AFC8FF!important;
 font-weight:700;
 font-size:15px;
-margin-bottom:10px;
+margin-bottom:14px;
 letter-spacing:.3px;
 }
 
-.st-key-numq_bar{
-background:#0E1B2A!important;
-border:1px solid #2A4E73!important;
-border-radius:16px!important;
-padding:6px!important;
-box-shadow:none!important;
-margin-bottom:6px!important;
+.numq-caption{
+text-align:center;
+color:#8FD3FF!important;
+font-weight:800;
+font-size:19px;
+margin-top:14px;
+margin-bottom:6px;
 }
 
-.st-key-numq_bar div[data-testid="stHorizontalBlock"]{
-gap:0!important;
+.st-key-numq_dial{
+position:relative!important;
+width:220px!important;
+height:220px!important;
+margin:0 auto!important;
+border-radius:50%!important;
+box-shadow:0 0 22px rgba(0,0,0,.35)!important;
+transition:background .3s ease!important;
 }
 
-.st-key-numq_bar div[data-testid="column"]{
+.numq-hole{
+position:absolute;
+top:50%;
+left:50%;
+width:108px;
+height:108px;
+border-radius:50%;
+background:#17263A;
+transform:translate(-50%,-50%);
+box-shadow:inset 0 0 14px rgba(0,0,0,.45);
+z-index:1;
+}
+
+/* Chip shape shared by every numbered button on the dial */
+.st-key-numq_dial div.stButton>button{
+width:46px!important;
+height:46px!important;
+min-width:46px!important;
 padding:0!important;
-}
-
-.st-key-numq_bar div[data-testid="column"] div.stButton>button{
-height:52px!important;
-width:100%!important;
-border-radius:0!important;
+border-radius:50%!important;
 border:1px solid #22344D!important;
-border-left:none!important;
-background:transparent!important;
-color:#AFC8FF!important;
-font-size:18px!important;
+background:#101d30!important;
+color:#7E93B5!important;
+font-size:16px!important;
 font-weight:700!important;
 box-shadow:none!important;
-transition:.2s!important;
+transition:all .25s ease!important;
 }
 
-.st-key-numq_bar div[data-testid="column"]:first-child div.stButton>button{
-border-left:1px solid #22344D!important;
-border-top-left-radius:12px!important;
-border-bottom-left-radius:12px!important;
+.st-key-numq_dial div.stButton>button:hover{
+background:rgba(47,129,247,.18)!important;
+color:#CFE1FF!important;
 }
 
-.st-key-numq_bar div[data-testid="column"]:last-child div.stButton>button{
-border-top-right-radius:12px!important;
-border-bottom-right-radius:12px!important;
+/* Fixed angular position of each chip around the ring (72° apart) */
+.st-key-numq_dial_btn_1{
+position:absolute!important;top:50%!important;left:50%!important;margin:0!important;z-index:3!important;
+transform:translate(-50%,-50%) rotate(-90deg) translate(0,-82px) rotate(90deg)!important;
+}
+.st-key-numq_dial_btn_2{
+position:absolute!important;top:50%!important;left:50%!important;margin:0!important;z-index:3!important;
+transform:translate(-50%,-50%) rotate(-18deg) translate(0,-82px) rotate(18deg)!important;
+}
+.st-key-numq_dial_btn_3{
+position:absolute!important;top:50%!important;left:50%!important;margin:0!important;z-index:3!important;
+transform:translate(-50%,-50%) rotate(54deg) translate(0,-82px) rotate(-54deg)!important;
+}
+.st-key-numq_dial_btn_4{
+position:absolute!important;top:50%!important;left:50%!important;margin:0!important;z-index:3!important;
+transform:translate(-50%,-50%) rotate(126deg) translate(0,-82px) rotate(-126deg)!important;
+}
+.st-key-numq_dial_btn_5{
+position:absolute!important;top:50%!important;left:50%!important;margin:0!important;z-index:3!important;
+transform:translate(-50%,-50%) rotate(198deg) translate(0,-82px) rotate(-198deg)!important;
 }
 
-.st-key-numq_bar div[data-testid="column"] div.stButton>button:hover{
-transform:none!important;
-background:#16283f!important;
-box-shadow:none!important;
+/* Hide Streamlit's default chrome (top toolbar/menu with the GitHub/Deploy
+   icons, the colored decoration line, and the footer) on both desktop and
+   mobile, so only our own header/title show. */
+#MainMenu{visibility:hidden!important;}
+footer{visibility:hidden!important;height:0!important;}
+header[data-testid="stHeader"]{
+display:none!important;
+height:0!important;
+}
+[data-testid="stToolbar"]{visibility:hidden!important;height:0!important;}
+[data-testid="stDecoration"]{display:none!important;height:0!important;}
+[data-testid="stStatusWidget"]{visibility:hidden!important;height:0!important;}
+.stDeployButton{display:none!important;}
+
+.block-container{
+padding-top:1.5rem!important;
 }
 
 </style>
@@ -596,37 +644,58 @@ def render_leaderboard_content(kiosk: bool = False):
 
 def render_question_count_selector() -> int:
     """
-    Renders the number-of-questions choice as a single connected
-    segmented bar (1 | 2 | 3 | 4 | 5) — plain numbers, no gaps between
-    segments, with the active choice highlighted by a glowing cyan
-    outline. Returns the currently selected integer value.
+    Renders the number-of-questions choice as a radial dial: a circular
+    ring split into 5 wedges (1-5) with a numbered chip on each, the
+    selected wedge tinted and its chip popped outward with a soft glow,
+    and a caption below showing the current choice. Returns the
+    selected integer value.
     """
     current = st.session_state.num_questions
 
     st.markdown("<div class='numq-label'>🎚️ Choose Interview Length</div>", unsafe_allow_html=True)
 
-    with st.container(key="numq_bar"):
-        cols = st.columns(len(NUM_QUESTIONS_OPTIONS))
-        for col, n in zip(cols, NUM_QUESTIONS_OPTIONS):
-            with col:
-                if st.button(str(n), key=f"numq_btn_{n}", use_container_width=True):
-                    st.session_state.num_questions = n
-                    current = n
+    with st.container(key="numq_dial"):
+        st.markdown("<div class='numq-hole'></div>", unsafe_allow_html=True)
+        for n in NUM_QUESTIONS_OPTIONS:
+            if st.button(str(n), key=f"numq_dial_btn_{n}"):
+                st.session_state.num_questions = n
+                current = n
 
-    # Highlight whichever segment is currently selected with a glowing outline.
+    # Tint the selected wedge of the ring and pop its chip outward with a soft glow.
+    base_color = "#17263A"
+    selected_color = "rgba(47,129,247,.35)"
+    stops = []
+    for i, n in enumerate(NUM_QUESTIONS_OPTIONS):
+        start = i * 72
+        end = start + 72
+        color = selected_color if n == current else base_color
+        stops.append(f"{color} {start}deg {end}deg")
+    gradient = "conic-gradient(from -126deg, " + ", ".join(stops) + ")"
+    angle = ANGLE_BY_NUM[current]
+
     st.markdown(
         f"""
         <style>
-        .st-key-numq_btn_{current} button{{
-            background:#0f2f45!important;
-            border-color:#38BDF8!important;
-            color:#8FD3FF!important;
-            box-shadow:0 0 14px rgba(56,189,248,.55), inset 0 0 0 1px #38BDF8!important;
-            position:relative!important;
-            z-index:2!important;
+        .st-key-numq_dial{{background:{gradient}!important;}}
+        .st-key-numq_dial_btn_{current}{{
+            transform:translate(-50%,-50%) rotate({angle}deg) translate(0,-90px) rotate({-angle}deg)!important;
+        }}
+        .st-key-numq_dial_btn_{current} button{{
+            width:56px!important;
+            height:56px!important;
+            min-width:56px!important;
+            background:rgba(47,129,247,.22)!important;
+            border-color:rgba(94,164,255,.6)!important;
+            color:#CFE1FF!important;
+            box-shadow:0 0 10px rgba(47,129,247,.30), inset 0 0 0 1px rgba(94,164,255,.4)!important;
         }}
         </style>
         """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        f"<div class='numq-caption'>{current} Question{'s' if current != 1 else ''}</div>",
         unsafe_allow_html=True,
     )
 
