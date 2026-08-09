@@ -47,6 +47,12 @@ SPECIALIZATIONS = [
 
 # ============================================================
 # 🔌 LIVE INTEGRATIONS (Member 1 + Member 2)
+# ------------------------------------------------------------
+# These wrap the real Groq-backed functions from audio_handler.py
+# and llm_evaluator.py. Both modules can raise a custom error
+# (TranscriptionError / EvaluationError) on API failure, so each
+# wrapper catches that specifically and shows a friendly message
+# instead of crashing the whole app mid-demo.
 # ============================================================
 
 def transcribe_audio(audio_file) -> str:
@@ -90,7 +96,7 @@ def get_feedback(name: str, question: str, answer: str) -> dict:
         }
 
 # ============================================================
-# 🏆 LEADERBOARD PERSISTENCE
+# 🏆 LEADERBOARD PERSISTENCE (lightweight local JSON, no auth)
 # ============================================================
 
 def load_leaderboard() -> list:
@@ -139,18 +145,8 @@ def get_today_leaderboard(top_n: int = LEADERBOARD_TOP_N) -> list:
 st.markdown("""
 <style>
 
-/* ===== 1. HIDE STREAMLIT CLOUD HEADER & FOOTER ===== */
-header[data-testid="stHeader"] {
-    display: none !important;
-}
-footer {
-    visibility: hidden !important;
-}
-#MainMenu {
-    visibility: hidden !important;
-}
-
 .stApp{
+
 background:linear-gradient(135deg,#071021,#0E1B2A,#162B47);
 color:white;
 }
@@ -160,45 +156,29 @@ color:white!important;
 }
 
 .block-container{
-padding-top:1.5rem !important;
-padding-left:5%;
-padding-right:5%;
-}
-
-@media (min-width: 768px) {
-    .block-container{
-        padding-top:2rem !important;
-        padding-left:8%;
-        padding-right:8%;
-    }
+padding-top:2rem;
+padding-left:8%;
+padding-right:8%;
 }
 
 .title{
-font-size:42px;
+font-size:60px;
 font-weight:800;
 text-align:center;
-margin-bottom:8px;
+margin-bottom:10px;
 letter-spacing:1px;
 }
 
-@media (min-width: 768px) {
-    .title{ font-size:60px; margin-bottom:10px; }
-}
-
 .subtitle{
-font-size:18px;
+font-size:22px;
 text-align:center;
 color:#AFC8FF;
-margin-bottom:28px;
-}
-
-@media (min-width: 768px) {
-    .subtitle{ font-size:22px; margin-bottom:40px; }
+margin-bottom:40px;
 }
 
 .st-key-card_home, .st-key-card_interview, .st-key-card_feedback, .st-key-card_summary, .st-key-card_leaderboard{
 background:#17263A!important;
-padding:12px 16px!important;
+padding:10px 15px!important;
 border-radius:20px!important;
 border:1px solid #27496D!important;
 box-shadow:0 0 18px rgba(0,0,0,.35)!important;
@@ -214,8 +194,8 @@ border:1px solid #2A4E73;
 div.stButton>button{
 background:linear-gradient(90deg,#2F81F7,#38BDF8);
 border:none;
-height:52px;
-font-size:18px;
+height:56px;
+font-size:19px;
 font-weight:bold;
 border-radius:14px;
 color:white;
@@ -224,31 +204,30 @@ width:100%;
 }
 
 div.stButton>button:hover{
-transform:scale(1.01);
-box-shadow:0 0 18px #38BDF8;
+transform:scale(1.02);
+box-shadow:0 0 20px #38BDF8;
 }
 
 .feature{
 background:#17263A;
-padding:20px;
+padding:25px;
 border-radius:18px;
 text-align:center;
 border:1px solid #2A4E73;
-height:auto;
-margin-bottom:15px;
+height:170px;
 }
 
 .feature h3{ margin-top:10px; }
 
 .footer{
 text-align:center;
-margin-top:40px;
-padding-top:24px;
+margin-top:50px;
+padding-top:28px;
 border-top:1px solid #27496D;
 }
 
 .footer-team{
-font-size:14px;
+font-size:15px;
 font-weight:600;
 color:white!important;
 letter-spacing:.4px;
@@ -258,7 +237,7 @@ margin-bottom:8px;
 .footer-divider{
 display:inline-block;
 color:#3A5A80!important;
-margin:0 8px;
+margin:0 10px;
 }
 
 .footer-uni{
@@ -287,14 +266,10 @@ border:1px solid #2A4E73;
 }
 
 .q-text{
-font-size:22px;
+font-size:26px;
 font-weight:600;
-line-height:1.4;
+line-height:1.5;
 margin-bottom:10px;
-}
-
-@media (min-width: 768px) {
-    .q-text{ font-size:26px; line-height:1.5; }
 }
 
 .timer-hint{
@@ -364,7 +339,7 @@ align-items:center;
 gap:10px;
 padding:12px 18px;
 border-radius:14px;
-font-size:14px;
+font-size:15px;
 font-weight:600;
 margin-bottom:14px;
 border:1px solid transparent;
@@ -407,7 +382,7 @@ font-weight:800;
 color:#38BDF8!important;
 }
 
-/* ===== 2. MOBILE-RESPONSIVE CONNECTED SEGMENTED BAR ===== */
+/* Number-of-questions — connected segmented bar */
 .numq-label{
 text-align:center;
 color:#AFC8FF!important;
@@ -421,56 +396,48 @@ letter-spacing:.3px;
 background:#0E1B2A!important;
 border:1px solid #2A4E73!important;
 border-radius:16px!important;
-padding:4px!important;
+padding:6px!important;
 box-shadow:none!important;
-margin-bottom:12px!important;
+margin-bottom:6px!important;
 }
 
-/* Force horizontal flex layout on mobile screens */
-.st-key-numq_bar div[data-testid="stHorizontalBlock"] {
-    display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    gap: 0 !important;
-    width: 100% !important;
+.st-key-numq_bar div[data-testid="stHorizontalBlock"]{
+gap:0!important;
 }
 
-.st-key-numq_bar div[data-testid="column"] {
-    flex: 1 1 0px !important;
-    min-width: 0 !important;
-    padding: 0 !important;
+.st-key-numq_bar div[data-testid="column"]{
+padding:0!important;
 }
 
-.st-key-numq_bar div[data-testid="column"] div.stButton>button {
-    height: 48px !important;
-    width: 100% !important;
-    border-radius: 0 !important;
-    border: 1px solid #22344D !important;
-    border-left: none !important;
-    background: transparent !important;
-    color: #AFC8FF !important;
-    font-size: 16px !important;
-    font-weight: 700 !important;
-    box-shadow: none !important;
-    transition: .2s !important;
-    padding: 0 !important;
+.st-key-numq_bar div[data-testid="column"] div.stButton>button{
+height:52px!important;
+width:100%!important;
+border-radius:0!important;
+border:1px solid #22344D!important;
+border-left:none!important;
+background:transparent!important;
+color:#AFC8FF!important;
+font-size:18px!important;
+font-weight:700!important;
+box-shadow:none!important;
+transition:.2s!important;
 }
 
-.st-key-numq_bar div[data-testid="column"]:first-child div.stButton>button {
-    border-left: 1px solid #22344D !important;
-    border-top-left-radius: 12px !important;
-    border-bottom-left-radius: 12px !important;
+.st-key-numq_bar div[data-testid="column"]:first-child div.stButton>button{
+border-left:1px solid #22344D!important;
+border-top-left-radius:12px!important;
+border-bottom-left-radius:12px!important;
 }
 
-.st-key-numq_bar div[data-testid="column"]:last-child div.stButton>button {
-    border-top-right-radius: 12px !important;
-    border-bottom-right-radius: 12px !important;
+.st-key-numq_bar div[data-testid="column"]:last-child div.stButton>button{
+border-top-right-radius:12px!important;
+border-bottom-right-radius:12px!important;
 }
 
-.st-key-numq_bar div[data-testid="column"] div.stButton>button:hover {
-    transform: none !important;
-    background: #16283f !important;
-    box-shadow: none !important;
+.st-key-numq_bar div[data-testid="column"] div.stButton>button:hover{
+transform:none!important;
+background:#16283f!important;
+box-shadow:none!important;
 }
 
 </style>
@@ -486,12 +453,12 @@ defaults = {
     "num_questions": DEFAULT_NUM_QUESTIONS,
     "q_index": 0,
     "current_question": "",
-    "current_feedback": None,
+    "current_feedback": None,  # dict from evaluate_interview_answer()
     "current_answer": "",
-    "history": [],
-    "logged_index": -1,
-    "audio_key_seed": 0,
-    "leaderboard_saved": False,
+    "history": [],  # list of dicts: {question, answer, feedback}
+    "logged_index": -1,  # guards against duplicate history entries on rerun
+    "audio_key_seed": 0,  # bumped to force a fresh, empty audio_input widget
+    "leaderboard_saved": False,  # guards against duplicate leaderboard entries on rerun
 }
 for key, value in defaults.items():
     if key not in st.session_state:
@@ -510,7 +477,7 @@ def reset_session():
 
 
 def score_label(percentage):
-    """Returns an evaluative word for a given percentage score."""
+    """Returns an evaluative word for a given percentage score (fallback if 'rating' is missing)."""
     if percentage is None:
         return ""
     if percentage >= 90:
@@ -536,7 +503,11 @@ def _bullet_block(title, items):
 
 
 def render_feedback(feedback: dict):
-    """Renders Member 2's structured evaluation dict."""
+    """
+    Renders Member 2's structured evaluation dict:
+    {welcome, score (0-100), rating, strengths[], gaps[], tips[], model_answer}
+    Used identically on both the feedback page and the final report.
+    """
     score = feedback.get("score", 0) or 0
     rating = feedback.get("rating") or score_label(score)
     welcome = feedback.get("welcome", "")
@@ -569,7 +540,7 @@ def render_feedback(feedback: dict):
 
 
 def render_leaderboard_content(kiosk: bool = False):
-    """Renders today's top performers."""
+    """Renders today's top performers. Shared by the in-app leaderboard page and kiosk mode."""
     top_entries = get_today_leaderboard(LEADERBOARD_TOP_N)
     today_str = datetime.date.today().strftime("%A, %d %B %Y")
 
@@ -624,7 +595,12 @@ def render_leaderboard_content(kiosk: bool = False):
 
 
 def render_question_count_selector() -> int:
-    """Renders the question count selection bar."""
+    """
+    Renders the number-of-questions choice as a single connected
+    segmented bar (1 | 2 | 3 | 4 | 5) — plain numbers, no gaps between
+    segments, with the active choice highlighted by a glowing cyan
+    outline. Returns the currently selected integer value.
+    """
     current = st.session_state.num_questions
 
     st.markdown("<div class='numq-label'>🎚️ Choose Interview Length</div>", unsafe_allow_html=True)
@@ -637,6 +613,7 @@ def render_question_count_selector() -> int:
                     st.session_state.num_questions = n
                     current = n
 
+    # Highlight whichever segment is currently selected with a glowing outline.
     st.markdown(
         f"""
         <style>
@@ -657,7 +634,10 @@ def render_question_count_selector() -> int:
 
 
 # ============================================================
-# 🖥️ KIOSK DISPLAY MODE
+# 🖥️ KIOSK / FULL-SCREEN DISPLAY MODE
+# ------------------------------------------------------------
+# Visiting the app with ?kiosk=1 in the URL shows a booth-friendly,
+# auto-refreshing, full-screen leaderboard — no interaction needed.
 # ============================================================
 _kiosk_param = st.query_params.get("kiosk", "0")
 if isinstance(_kiosk_param, list):
@@ -683,19 +663,21 @@ if KIOSK_MODE:
     st.stop()
 
 # ============================================================
-# HEADER
+# HEADER (shown on every page)
 # ============================================================
 st.markdown("<div class='title'>🎤 MUHAAKA</div>", unsafe_allow_html=True)
 st.markdown("<div class='subtitle'>AI Technical Interview Simulator</div>", unsafe_allow_html=True)
 
 # ============================================================
-# SIDEBAR
+# SIDEBAR (admin-only helpers — kept out of the visitor-facing pages)
 # ============================================================
 with st.sidebar:
     with st.expander("⚙️ Admin / Booth Tools", expanded=False):
         st.caption(
             "💡 **Kiosk display**: open this app's URL with `?kiosk=1` "
-            "appended on an external screen for a full-screen leaderboard."
+            "appended (e.g. `your-app-url?kiosk=1`) on an external screen "
+            f"for a full-screen leaderboard that auto-refreshes every "
+            f"{KIOSK_REFRESH_SECONDS}s."
         )
 
 # ============================================================
@@ -728,7 +710,7 @@ def page_home():
                     st.session_state.history = []
                     st.session_state.logged_index = -1
                     st.session_state.leaderboard_saved = False
-                    st.session_state.audio_key_seed += 1
+                    st.session_state.audio_key_seed += 1  # guarantee a clean recorder
                     with st.spinner("Preparing your first question..."):
                         st.session_state.current_question = get_question(specialization)
                     st.session_state.page = "interview"
@@ -868,7 +850,7 @@ def page_feedback():
                     st.session_state.page = "summary"
                 else:
                     st.session_state.q_index += 1
-                    st.session_state.audio_key_seed += 1
+                    st.session_state.audio_key_seed += 1  # fresh recorder for the next question
                     with st.spinner("Preparing your next question..."):
                         st.session_state.current_question = get_question(st.session_state.specialization)
                     st.session_state.page = "interview"
@@ -892,6 +874,7 @@ def page_summary():
                 avg_pct = round(sum(scores) / len(scores), 1)
                 st.metric("Average Score", f"{avg_pct}%", score_label(avg_pct))
 
+            # Save this session's result to the local leaderboard, once per session.
             if avg_pct is not None and not st.session_state.leaderboard_saved:
                 save_leaderboard_entry(
                     st.session_state.name,
