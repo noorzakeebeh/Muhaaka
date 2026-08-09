@@ -400,121 +400,89 @@ text-align:center;
 color:#8FD3FF!important;
 font-weight:800;
 font-size:19px;
-margin-top:18px;
+margin-top:14px;
 margin-bottom:6px;
 }
 
-/* Extra breathing room so the dial never crowds the field above/below it */
-.numq-wrap{
-margin-top:8px;
-margin-bottom:4px;
-}
-
-/* The dial's own row must be a fixed-size, non-collapsing, positioned box.
-   We set an explicit height via st.container(height=...) (a real reserved
-   layout box, not something that can collapse), then pin down every other
-   layout property here so nothing shifts, stretches, scrolls, or leaks
-   into neighboring widgets. !important beats Streamlit's own non-!important
-   inline styles for each of these properties individually. */
-div[data-testid="stVerticalBlockBorderWrapper"].st-key-numq_dial,
 .st-key-numq_dial{
 position:relative!important;
 display:block!important;
-width:230px!important;
-max-width:230px!important;
+box-sizing:content-box!important;
+width:220px!important;
+height:220px!important;
+min-height:220px!important;
 margin:0 auto!important;
 padding:0!important;
-border:none!important;
+border:1px solid #2A4E73!important;
+border-radius:50%!important;
+box-shadow:0 0 22px rgba(0,0,0,.35)!important;
 overflow:visible!important;
+transition:background .3s ease!important;
 }
 
-.st-key-numq_dial > div,
-.st-key-numq_dial [data-testid="stVerticalBlock"]{
-position:relative!important;
-width:230px!important;
-height:230px!important;
-overflow:visible!important;
-}
-
-.numq-ring{
-position:absolute;
-top:0;
-left:50%;
-transform:translateX(-50%);
-width:230px;
-height:230px;
-border-radius:50%;
-box-shadow:0 0 22px rgba(0,0,0,.35);
-transition:background .3s ease;
-z-index:0;
-pointer-events:none;
+/* Streamlit wraps our content in several layers of generic divs
+   (block/column/element-container/etc). Flatten all of them so they
+   don't add their own box/height/flex-gap — only our own dial pieces
+   (the hole and the 5 numbered chips) keep a real box and are
+   positioned directly against .st-key-numq_dial itself. */
+.st-key-numq_dial div:not(.numq-hole):not([class*="st-key-numq_dial_btn_"]){
+display:contents!important;
 }
 
 .numq-hole{
-position:absolute;
-top:115px;
-left:50%;
-width:110px;
-height:110px;
-border-radius:50%;
-background:#17263A;
-transform:translate(-50%,-50%);
-box-shadow:inset 0 0 14px rgba(0,0,0,.45);
-z-index:1;
-pointer-events:none;
+position:absolute!important;
+top:50%!important;
+left:50%!important;
+width:108px!important;
+height:108px!important;
+border-radius:50%!important;
+background:#17263A!important;
+transform:translate(-50%,-50%)!important;
+box-shadow:inset 0 0 14px rgba(0,0,0,.45)!important;
+z-index:1!important;
 }
 
 /* Chip shape shared by every numbered button on the dial */
 .st-key-numq_dial div.stButton>button{
-width:44px!important;
-height:44px!important;
-min-width:44px!important;
+width:46px!important;
+height:46px!important;
+min-width:46px!important;
 padding:0!important;
 border-radius:50%!important;
-border:1px solid #22344D!important;
+border:1px solid #33507A!important;
 background:#101d30!important;
-color:#7E93B5!important;
+color:#AFC8FF!important;
 font-size:16px!important;
 font-weight:700!important;
-box-shadow:none!important;
+box-shadow:0 2px 6px rgba(0,0,0,.4)!important;
 transition:all .25s ease!important;
 }
 
 .st-key-numq_dial div.stButton>button:hover{
-background:rgba(47,129,247,.18)!important;
+background:rgba(47,129,247,.22)!important;
 color:#CFE1FF!important;
 }
 
-/* Fixed angular position of each chip around the ring (72° apart).
-   The center of rotation is the ring's own center (115px, 115px inside
-   the 230x230 box), and the outward distance (76px) is kept well inside
-   the ring radius (115px) so no chip — including the enlarged, selected
-   one at 54px wide — can ever spill past the ring's edge. */
-.st-key-numq_dial_btn_1,
-.st-key-numq_dial_btn_2,
-.st-key-numq_dial_btn_3,
-.st-key-numq_dial_btn_4,
-.st-key-numq_dial_btn_5{
-position:absolute!important;
-top:115px!important;
-left:50%!important;
-margin:0!important;
-z-index:3!important;
-}
+/* Fixed angular position of each chip around the ring (72° apart) */
 .st-key-numq_dial_btn_1{
-transform:translate(-50%,-50%) rotate(-90deg) translate(0,-76px) rotate(90deg)!important;
+position:absolute!important;top:50%!important;left:50%!important;margin:0!important;z-index:3!important;
+transform:translate(-50%,-50%) rotate(-90deg) translate(0,-82px) rotate(90deg)!important;
 }
 .st-key-numq_dial_btn_2{
-transform:translate(-50%,-50%) rotate(-18deg) translate(0,-76px) rotate(18deg)!important;
+position:absolute!important;top:50%!important;left:50%!important;margin:0!important;z-index:3!important;
+transform:translate(-50%,-50%) rotate(-18deg) translate(0,-82px) rotate(18deg)!important;
 }
 .st-key-numq_dial_btn_3{
-transform:translate(-50%,-50%) rotate(54deg) translate(0,-76px) rotate(-54deg)!important;
+position:absolute!important;top:50%!important;left:50%!important;margin:0!important;z-index:3!important;
+transform:translate(-50%,-50%) rotate(54deg) translate(0,-82px) rotate(-54deg)!important;
 }
 .st-key-numq_dial_btn_4{
-transform:translate(-50%,-50%) rotate(126deg) translate(0,-76px) rotate(-126deg)!important;
+position:absolute!important;top:50%!important;left:50%!important;margin:0!important;z-index:3!important;
+transform:translate(-50%,-50%) rotate(126deg) translate(0,-82px) rotate(-126deg)!important;
 }
 .st-key-numq_dial_btn_5{
-transform:translate(-50%,-50%) rotate(198deg) translate(0,-76px) rotate(-198deg)!important;
+position:absolute!important;top:50%!important;left:50%!important;margin:0!important;z-index:3!important;
+transform:translate(-50%,-50%) rotate(198deg) translate(0,-82px) rotate(-198deg)!important;
 }
 
 /* Hide Streamlit's default chrome (top toolbar/menu with the GitHub/Deploy
@@ -701,19 +669,12 @@ def render_question_count_selector() -> int:
 
     st.markdown("<div class='numq-label'>🎚️ Choose Interview Length</div>", unsafe_allow_html=True)
 
-    st.markdown("<div class='numq-wrap'>", unsafe_allow_html=True)
-    # height=230 makes Streamlit itself reserve a real, fixed 230px-tall box
-    # in the page's normal flow for this row — the dial can no longer
-    # collapse to zero height and drift over neighboring widgets, no matter
-    # how the chips inside it are positioned.
-    with st.container(key="numq_dial", height=230, border=False):
-        st.markdown("<div class='numq-ring' id='numq-ring'></div>", unsafe_allow_html=True)
+    with st.container(key="numq_dial"):
         st.markdown("<div class='numq-hole'></div>", unsafe_allow_html=True)
         for n in NUM_QUESTIONS_OPTIONS:
             if st.button(str(n), key=f"numq_dial_btn_{n}"):
                 st.session_state.num_questions = n
                 current = n
-    st.markdown("</div>", unsafe_allow_html=True)
 
     # Tint the selected wedge of the ring and pop its chip outward with a soft glow.
     base_color = "#17263A"
@@ -730,14 +691,14 @@ def render_question_count_selector() -> int:
     st.markdown(
         f"""
         <style>
-        .numq-ring{{background:{gradient}!important;}}
+        .st-key-numq_dial{{background:{gradient}!important;}}
         .st-key-numq_dial_btn_{current}{{
-            transform:translate(-50%,-50%) rotate({angle}deg) translate(0,-78px) rotate({-angle}deg)!important;
+            transform:translate(-50%,-50%) rotate({angle}deg) translate(0,-90px) rotate({-angle}deg)!important;
         }}
         .st-key-numq_dial_btn_{current} button{{
-            width:54px!important;
-            height:54px!important;
-            min-width:54px!important;
+            width:56px!important;
+            height:56px!important;
+            min-width:56px!important;
             background:rgba(47,129,247,.22)!important;
             border-color:rgba(94,164,255,.6)!important;
             color:#CFE1FF!important;
