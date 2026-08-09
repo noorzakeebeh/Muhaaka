@@ -1,5 +1,8 @@
 import streamlit as st
 import html
+import json
+import os
+import datetime
 
 from audio_handler import transcribe_audio_bytes, TranscriptionError
 from llm_evaluator import generate_interview_question, evaluate_interview_answer, EvaluationError
@@ -14,29 +17,15 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-#=======================================
-
-# ضع كود إخفاء الشريط هنا بعد الـ imports
-st.markdown("""
-    <style>
-    header {visibility: hidden !important;}
-    #MainMenu {visibility: hidden !important;}
-    footer {visibility: hidden !important;}
-    .block-container {
-        padding-top: 1rem !important;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-
-#==================================
-
-
-
 # ============================================================
 # APP CONFIG
 # ============================================================
-QUESTIONS_PER_SESSION = 1
+DEFAULT_NUM_QUESTIONS = 3
+NUM_QUESTIONS_OPTIONS = [1, 2, 3, 4, 5]
+
+LEADERBOARD_FILE = "leaderboard.json"
+LEADERBOARD_TOP_N = 5
+KIOSK_REFRESH_SECONDS = 20
 
 SPECIALIZATIONS = [
     "Computer Science",
@@ -107,6 +96,50 @@ def get_feedback(name: str, question: str, answer: str) -> dict:
         }
 
 # ============================================================
+# 🏆 LEADERBOARD PERSISTENCE (lightweight local JSON, no auth)
+# ============================================================
+
+def load_leaderboard() -> list:
+    """Reads all saved leaderboard entries from the local JSON file. Never raises."""
+    try:
+        if not os.path.exists(LEADERBOARD_FILE):
+            return []
+        with open(LEADERBOARD_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def save_leaderboard_entry(name: str, specialization: str, score: float) -> bool:
+    """Appends a completed session's result to the local JSON leaderboard file."""
+    now = datetime.datetime.now()
+    entry = {
+        "name": name,
+        "specialization": specialization,
+        "score": score,
+        "date": now.date().isoformat(),
+        "time": now.strftime("%H:%M"),
+    }
+    try:
+        data = load_leaderboard()
+        data.append(entry)
+        with open(LEADERBOARD_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception:
+        return False
+
+
+def get_today_leaderboard(top_n: int = LEADERBOARD_TOP_N) -> list:
+    """Returns today's top N entries, highest score first."""
+    today_str = datetime.date.today().isoformat()
+    data = load_leaderboard()
+    today_entries = [e for e in data if e.get("date") == today_str]
+    today_entries.sort(key=lambda e: e.get("score", 0) or 0, reverse=True)
+    return today_entries[:top_n]
+
+# ============================================================
 # STYLES
 # ============================================================
 st.markdown("""
@@ -143,7 +176,7 @@ color:#AFC8FF;
 margin-bottom:40px;
 }
 
-.st-key-card_home, .st-key-card_interview, .st-key-card_feedback, .st-key-card_summary{
+.st-key-card_home, .st-key-card_interview, .st-key-card_feedback, .st-key-card_summary, .st-key-card_leaderboard{
 background:#17263A!important;
 padding:10px 15px!important;
 border-radius:20px!important;
@@ -299,6 +332,56 @@ margin-bottom:6px;
 font-size:14px;
 }
 
+/* Recording status hint */
+.rec-status{
+display:flex;
+align-items:center;
+gap:10px;
+padding:12px 18px;
+border-radius:14px;
+font-size:15px;
+font-weight:600;
+margin-bottom:14px;
+border:1px solid transparent;
+transition:.25s;
+}
+
+.rec-status.ready{
+background:rgba(47,129,247,.12);
+border-color:#2F81F7;
+color:#8FD3FF!important;
+}
+
+.rec-status.done{
+background:rgba(56,189,248,.12);
+border-color:#22c55e;
+color:#7CF5A6!important;
+}
+
+/* Leaderboard */
+.lb-row{
+display:flex;
+align-items:center;
+justify-content:space-between;
+background:#17263A;
+border:1px solid #2A4E73;
+border-radius:16px;
+margin-bottom:12px;
+}
+
+.lb-name{
+font-weight:700;
+}
+
+.lb-sub{
+color:#9FB4D1!important;
+}
+
+.lb-score{
+font-weight:800;
+color:#38BDF8!important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -309,12 +392,15 @@ defaults = {
     "page": "home",
     "name": "",
     "specialization": SPECIALIZATIONS[0],
+    "num_questions": DEFAULT_NUM_QUESTIONS,
     "q_index": 0,
     "current_question": "",
     "current_feedback": None,  # dict from evaluate_interview_answer()
     "current_answer": "",
     "history": [],  # list of dicts: {question, answer, feedback}
     "logged_index": -1,  # guards against duplicate history entries on rerun
+    "audio_key_seed": 0,  # bumped to force a fresh, empty audio_input widget
+    "leaderboard_saved": False,  # guards against duplicate leaderboard entries on rerun
 }
 for key, value in defaults.items():
     if key not in st.session_state:
@@ -322,8 +408,14 @@ for key, value in defaults.items():
 
 
 def reset_session():
+    """Resets a session for a brand-new interview, while preserving the
+    operator's chosen question count and guaranteeing a fresh audio widget."""
+    preserved_num_questions = st.session_state.get("num_questions", DEFAULT_NUM_QUESTIONS)
+    next_audio_seed = st.session_state.get("audio_key_seed", 0) + 1
     for key, value in defaults.items():
         st.session_state[key] = value
+    st.session_state.num_questions = preserved_num_questions
+    st.session_state.audio_key_seed = next_audio_seed
 
 
 def score_label(percentage):
@@ -389,6 +481,90 @@ def render_feedback(feedback: dict):
             st.write(model_answer)
 
 
+def render_leaderboard_content(kiosk: bool = False):
+    """Renders today's top performers. Shared by the in-app leaderboard page and kiosk mode."""
+    top_entries = get_today_leaderboard(LEADERBOARD_TOP_N)
+    today_str = datetime.date.today().strftime("%A, %d %B %Y")
+
+    title_size = "48px" if kiosk else "26px"
+    st.markdown(
+        f"<div style='text-align:center;font-size:{title_size};font-weight:800;margin-bottom:4px;'>"
+        f"🏆 Today's Top Performers</div>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f"<div style='text-align:center;color:#9FB4D1;margin-bottom:26px;font-size:{'18px' if kiosk else '14px'};'>"
+        f"{today_str}</div>",
+        unsafe_allow_html=True,
+    )
+
+    if not top_entries:
+        st.markdown(
+            "<div style='text-align:center;color:#9FB4D1;padding:40px;font-size:18px;'>"
+            "No completed interviews yet today — be the first! 🚀</div>",
+            unsafe_allow_html=True,
+        )
+        return
+
+    medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"]
+    padding = "24px 32px" if kiosk else "14px 20px"
+    medal_size = "36px" if kiosk else "22px"
+    name_size = "28px" if kiosk else "17px"
+    sub_size = "16px" if kiosk else "13px"
+    score_size = "34px" if kiosk else "20px"
+
+    for i, entry in enumerate(top_entries):
+        medal = medals[i] if i < len(medals) else f"{i + 1}."
+        name = html.escape(str(entry.get("name", "-")))
+        spec = html.escape(str(entry.get("specialization", "-")))
+        time_str = html.escape(str(entry.get("time", "")))
+        score = entry.get("score", 0)
+        st.markdown(
+            f"""
+            <div class='lb-row' style='padding:{padding};'>
+                <div style='display:flex;align-items:center;gap:16px;'>
+                    <span style='font-size:{medal_size};'>{medal}</span>
+                    <div>
+                        <div class='lb-name' style='font-size:{name_size};'>{name}</div>
+                        <div class='lb-sub' style='font-size:{sub_size};'>{spec} • {time_str}</div>
+                    </div>
+                </div>
+                <div class='lb-score' style='font-size:{score_size};'>{score}%</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
+# ============================================================
+# 🖥️ KIOSK / FULL-SCREEN DISPLAY MODE
+# ------------------------------------------------------------
+# Visiting the app with ?kiosk=1 in the URL shows a booth-friendly,
+# auto-refreshing, full-screen leaderboard — no interaction needed.
+# ============================================================
+_kiosk_param = st.query_params.get("kiosk", "0")
+if isinstance(_kiosk_param, list):
+    _kiosk_param = _kiosk_param[0] if _kiosk_param else "0"
+KIOSK_MODE = str(_kiosk_param).lower() in ("1", "true", "yes")
+
+if KIOSK_MODE:
+    st.markdown(
+        f"<meta http-equiv='refresh' content='{KIOSK_REFRESH_SECONDS}'>",
+        unsafe_allow_html=True,
+    )
+    st.markdown("<div class='title' style='font-size:70px;'>🎤 MUHAAKA</div>", unsafe_allow_html=True)
+    st.markdown(
+        "<div class='subtitle' style='font-size:26px;'>Live Leaderboard — AI Technical Interview Simulator</div>",
+        unsafe_allow_html=True,
+    )
+    render_leaderboard_content(kiosk=True)
+    st.markdown(
+        f"<div style='text-align:center;color:#5E7292;margin-top:30px;font-size:14px;'>"
+        f"Auto-refreshing every {KIOSK_REFRESH_SECONDS}s • Powered by Muhaaka</div>",
+        unsafe_allow_html=True,
+    )
+    st.stop()
+
 # ============================================================
 # HEADER (shown on every page)
 # ============================================================
@@ -410,6 +586,12 @@ def page_home():
                 index=SPECIALIZATIONS.index(st.session_state.specialization),
             )
 
+            num_questions = st.select_slider(
+                "🔢 Number of Questions",
+                options=NUM_QUESTIONS_OPTIONS,
+                value=st.session_state.num_questions,
+            )
+
             st.write("")
 
             if st.button("🚀 Start Interview", use_container_width=True):
@@ -418,13 +600,20 @@ def page_home():
                 else:
                     st.session_state.name = name.strip()
                     st.session_state.specialization = specialization
+                    st.session_state.num_questions = num_questions
                     st.session_state.q_index = 0
                     st.session_state.history = []
                     st.session_state.logged_index = -1
+                    st.session_state.leaderboard_saved = False
+                    st.session_state.audio_key_seed += 1  # guarantee a clean recorder
                     with st.spinner("Preparing your first question..."):
                         st.session_state.current_question = get_question(specialization)
                     st.session_state.page = "interview"
                     st.rerun()
+
+            if st.button("🏆 View Today's Leaderboard", use_container_width=True):
+                st.session_state.page = "leaderboard"
+                st.rerun()
 
     st.write("")
     st.write("")
@@ -461,11 +650,12 @@ def page_home():
 # ============================================================
 def page_interview():
     left, center, right = st.columns([1, 6, 1])
+    num_questions = st.session_state.num_questions
 
     with center:
-        progress = st.session_state.q_index / QUESTIONS_PER_SESSION
+        progress = st.session_state.q_index / num_questions
         st.markdown(
-            f"<div class='progress-label'>Question {st.session_state.q_index + 1} of {QUESTIONS_PER_SESSION}</div>",
+            f"<div class='progress-label'>Question {st.session_state.q_index + 1} of {num_questions}</div>",
             unsafe_allow_html=True,
         )
         st.progress(progress)
@@ -475,9 +665,26 @@ def page_interview():
             st.markdown(f"<div class='q-text'>{html.escape(st.session_state.current_question)}</div>", unsafe_allow_html=True)
             st.markdown("<div class='timer-hint'>⏱ Aim to answer in about 45 seconds.</div>", unsafe_allow_html=True)
 
-
             st.markdown("**🎙 Record your answer**")
-            audio_value = st.audio_input("Tap to record", label_visibility="collapsed")
+
+            audio_key = f"audio_{st.session_state.audio_key_seed}"
+            audio_value = st.audio_input("Tap to record", label_visibility="collapsed", key=audio_key)
+
+            if audio_value is None:
+                st.markdown(
+                    "<div class='rec-status ready'>🎙️ Microphone ready — tap the button above and "
+                    "speak clearly, close to the mic.</div>",
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.markdown(
+                    "<div class='rec-status done'>✅ Recording captured — play it back to make sure "
+                    "it's clear and audible before submitting.</div>",
+                    unsafe_allow_html=True,
+                )
+                if st.button("🔄 Clear & Re-record", use_container_width=True, key="clear_record_btn"):
+                    st.session_state.audio_key_seed += 1
+                    st.rerun()
 
             with st.expander("⌨️ Prefer to type your answer instead?"):
                 typed_answer = st.text_area("Your answer", label_visibility="collapsed", height=100)
@@ -512,6 +719,7 @@ def page_interview():
 # ============================================================
 def page_feedback():
     left, center, right = st.columns([1, 6, 1])
+    num_questions = st.session_state.num_questions
 
     with center:
         with st.container(border=True, key="card_feedback"):
@@ -529,7 +737,7 @@ def page_feedback():
 
             st.write("")
 
-            is_last = st.session_state.q_index + 1 >= QUESTIONS_PER_SESSION
+            is_last = st.session_state.q_index + 1 >= num_questions
             button_label = "📊 View Final Report" if is_last else "➡️ Next Question"
 
             if st.button(button_label, use_container_width=True):
@@ -537,6 +745,7 @@ def page_feedback():
                     st.session_state.page = "summary"
                 else:
                     st.session_state.q_index += 1
+                    st.session_state.audio_key_seed += 1  # fresh recorder for the next question
                     with st.spinner("Preparing your next question..."):
                         st.session_state.current_question = get_question(st.session_state.specialization)
                     st.session_state.page = "interview"
@@ -555,9 +764,19 @@ def page_summary():
             st.markdown("Here's a summary of your interview session.")
 
             scores = [h["score"] for h in st.session_state.history if h["score"] is not None]
+            avg_pct = None
             if scores:
                 avg_pct = round(sum(scores) / len(scores), 1)
                 st.metric("Average Score", f"{avg_pct}%", score_label(avg_pct))
+
+            # Save this session's result to the local leaderboard, once per session.
+            if avg_pct is not None and not st.session_state.leaderboard_saved:
+                save_leaderboard_entry(
+                    st.session_state.name,
+                    st.session_state.specialization,
+                    avg_pct,
+                )
+                st.session_state.leaderboard_saved = True
 
             st.write("")
 
@@ -569,9 +788,42 @@ def page_summary():
 
             st.write("")
 
-            if st.button("🔁 Start New Interview", use_container_width=True):
-                reset_session()
-                st.rerun()
+            c1, c2 = st.columns(2)
+            with c1:
+                if st.button("🏆 View Leaderboard", use_container_width=True):
+                    st.session_state.page = "leaderboard"
+                    st.rerun()
+            with c2:
+                if st.button("🔁 Start New Interview", use_container_width=True):
+                    reset_session()
+                    st.rerun()
+
+
+# ============================================================
+# PAGE: LEADERBOARD
+# ============================================================
+def page_leaderboard():
+    left, center, right = st.columns([1, 3, 1])
+
+    with center:
+        with st.container(border=True, key="card_leaderboard"):
+            render_leaderboard_content(kiosk=False)
+
+            st.write("")
+            st.info(
+                "💡 Booth tip: open this app's URL with `?kiosk=1` at the end "
+                "(e.g. `your-app-url?kiosk=1`) on an external screen for a "
+                "full-screen, auto-refreshing display."
+            )
+
+            c1, c2 = st.columns(2)
+            with c1:
+                if st.button("🔄 Refresh Now", use_container_width=True):
+                    st.rerun()
+            with c2:
+                if st.button("⬅️ Back to Home", use_container_width=True):
+                    st.session_state.page = "home"
+                    st.rerun()
 
 
 # ============================================================
@@ -585,6 +837,8 @@ elif st.session_state.page == "feedback":
     page_feedback()
 elif st.session_state.page == "summary":
     page_summary()
+elif st.session_state.page == "leaderboard":
+    page_leaderboard()
 
 # ============================================================
 # FOOTER
