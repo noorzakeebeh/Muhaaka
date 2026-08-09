@@ -400,38 +400,75 @@ text-align:center;
 color:#8FD3FF!important;
 font-weight:800;
 font-size:19px;
-margin-top:14px;
+margin-top:18px;
 margin-bottom:6px;
 }
 
+/* Extra breathing room so the dial never crowds the field above/below it */
+.numq-wrap{
+margin-top:8px;
+margin-bottom:4px;
+}
+
+/* The dial's own row must be a fixed-size, non-collapsing, positioned box.
+   We set an explicit height via st.container(height=...) (a real reserved
+   layout box, not something that can collapse), then pin down every other
+   layout property here so nothing shifts, stretches, scrolls, or leaks
+   into neighboring widgets. !important beats Streamlit's own non-!important
+   inline styles for each of these properties individually. */
+div[data-testid="stVerticalBlockBorderWrapper"].st-key-numq_dial,
 .st-key-numq_dial{
 position:relative!important;
-width:220px!important;
-height:220px!important;
+display:block!important;
+width:230px!important;
+max-width:230px!important;
 margin:0 auto!important;
-border-radius:50%!important;
-box-shadow:0 0 22px rgba(0,0,0,.35)!important;
-transition:background .3s ease!important;
+padding:0!important;
+border:none!important;
+overflow:visible!important;
+}
+
+.st-key-numq_dial > div,
+.st-key-numq_dial [data-testid="stVerticalBlock"]{
+position:relative!important;
+width:230px!important;
+height:230px!important;
+overflow:visible!important;
+}
+
+.numq-ring{
+position:absolute;
+top:0;
+left:50%;
+transform:translateX(-50%);
+width:230px;
+height:230px;
+border-radius:50%;
+box-shadow:0 0 22px rgba(0,0,0,.35);
+transition:background .3s ease;
+z-index:0;
+pointer-events:none;
 }
 
 .numq-hole{
 position:absolute;
-top:50%;
+top:115px;
 left:50%;
-width:108px;
-height:108px;
+width:110px;
+height:110px;
 border-radius:50%;
 background:#17263A;
 transform:translate(-50%,-50%);
 box-shadow:inset 0 0 14px rgba(0,0,0,.45);
 z-index:1;
+pointer-events:none;
 }
 
 /* Chip shape shared by every numbered button on the dial */
 .st-key-numq_dial div.stButton>button{
-width:46px!important;
-height:46px!important;
-min-width:46px!important;
+width:44px!important;
+height:44px!important;
+min-width:44px!important;
 padding:0!important;
 border-radius:50%!important;
 border:1px solid #22344D!important;
@@ -448,26 +485,36 @@ background:rgba(47,129,247,.18)!important;
 color:#CFE1FF!important;
 }
 
-/* Fixed angular position of each chip around the ring (72° apart) */
+/* Fixed angular position of each chip around the ring (72° apart).
+   The center of rotation is the ring's own center (115px, 115px inside
+   the 230x230 box), and the outward distance (76px) is kept well inside
+   the ring radius (115px) so no chip — including the enlarged, selected
+   one at 54px wide — can ever spill past the ring's edge. */
+.st-key-numq_dial_btn_1,
+.st-key-numq_dial_btn_2,
+.st-key-numq_dial_btn_3,
+.st-key-numq_dial_btn_4,
+.st-key-numq_dial_btn_5{
+position:absolute!important;
+top:115px!important;
+left:50%!important;
+margin:0!important;
+z-index:3!important;
+}
 .st-key-numq_dial_btn_1{
-position:absolute!important;top:50%!important;left:50%!important;margin:0!important;z-index:3!important;
-transform:translate(-50%,-50%) rotate(-90deg) translate(0,-82px) rotate(90deg)!important;
+transform:translate(-50%,-50%) rotate(-90deg) translate(0,-76px) rotate(90deg)!important;
 }
 .st-key-numq_dial_btn_2{
-position:absolute!important;top:50%!important;left:50%!important;margin:0!important;z-index:3!important;
-transform:translate(-50%,-50%) rotate(-18deg) translate(0,-82px) rotate(18deg)!important;
+transform:translate(-50%,-50%) rotate(-18deg) translate(0,-76px) rotate(18deg)!important;
 }
 .st-key-numq_dial_btn_3{
-position:absolute!important;top:50%!important;left:50%!important;margin:0!important;z-index:3!important;
-transform:translate(-50%,-50%) rotate(54deg) translate(0,-82px) rotate(-54deg)!important;
+transform:translate(-50%,-50%) rotate(54deg) translate(0,-76px) rotate(-54deg)!important;
 }
 .st-key-numq_dial_btn_4{
-position:absolute!important;top:50%!important;left:50%!important;margin:0!important;z-index:3!important;
-transform:translate(-50%,-50%) rotate(126deg) translate(0,-82px) rotate(-126deg)!important;
+transform:translate(-50%,-50%) rotate(126deg) translate(0,-76px) rotate(-126deg)!important;
 }
 .st-key-numq_dial_btn_5{
-position:absolute!important;top:50%!important;left:50%!important;margin:0!important;z-index:3!important;
-transform:translate(-50%,-50%) rotate(198deg) translate(0,-82px) rotate(-198deg)!important;
+transform:translate(-50%,-50%) rotate(198deg) translate(0,-76px) rotate(-198deg)!important;
 }
 
 /* Hide Streamlit's default chrome (top toolbar/menu with the GitHub/Deploy
@@ -654,12 +701,19 @@ def render_question_count_selector() -> int:
 
     st.markdown("<div class='numq-label'>🎚️ Choose Interview Length</div>", unsafe_allow_html=True)
 
-    with st.container(key="numq_dial"):
+    st.markdown("<div class='numq-wrap'>", unsafe_allow_html=True)
+    # height=230 makes Streamlit itself reserve a real, fixed 230px-tall box
+    # in the page's normal flow for this row — the dial can no longer
+    # collapse to zero height and drift over neighboring widgets, no matter
+    # how the chips inside it are positioned.
+    with st.container(key="numq_dial", height=230, border=False):
+        st.markdown("<div class='numq-ring' id='numq-ring'></div>", unsafe_allow_html=True)
         st.markdown("<div class='numq-hole'></div>", unsafe_allow_html=True)
         for n in NUM_QUESTIONS_OPTIONS:
             if st.button(str(n), key=f"numq_dial_btn_{n}"):
                 st.session_state.num_questions = n
                 current = n
+    st.markdown("</div>", unsafe_allow_html=True)
 
     # Tint the selected wedge of the ring and pop its chip outward with a soft glow.
     base_color = "#17263A"
@@ -676,14 +730,14 @@ def render_question_count_selector() -> int:
     st.markdown(
         f"""
         <style>
-        .st-key-numq_dial{{background:{gradient}!important;}}
+        .numq-ring{{background:{gradient}!important;}}
         .st-key-numq_dial_btn_{current}{{
-            transform:translate(-50%,-50%) rotate({angle}deg) translate(0,-90px) rotate({-angle}deg)!important;
+            transform:translate(-50%,-50%) rotate({angle}deg) translate(0,-78px) rotate({-angle}deg)!important;
         }}
         .st-key-numq_dial_btn_{current} button{{
-            width:56px!important;
-            height:56px!important;
-            min-width:56px!important;
+            width:54px!important;
+            height:54px!important;
+            min-width:54px!important;
             background:rgba(47,129,247,.22)!important;
             border-color:rgba(94,164,255,.6)!important;
             color:#CFE1FF!important;
@@ -977,46 +1031,4 @@ def page_summary():
 # PAGE: LEADERBOARD
 # ============================================================
 def page_leaderboard():
-    left, center, right = st.columns([1, 3, 1])
-
-    with center:
-        with st.container(border=True, key="card_leaderboard"):
-            render_leaderboard_content(kiosk=False)
-
-            st.write("")
-
-            c1, c2 = st.columns(2)
-            with c1:
-                if st.button("🔄 Refresh Now", use_container_width=True):
-                    st.rerun()
-            with c2:
-                if st.button("⬅️ Back to Home", use_container_width=True):
-                    st.session_state.page = "home"
-                    st.rerun()
-
-
-# ============================================================
-# ROUTER
-# ============================================================
-if st.session_state.page == "home":
-    page_home()
-elif st.session_state.page == "interview":
-    page_interview()
-elif st.session_state.page == "feedback":
-    page_feedback()
-elif st.session_state.page == "summary":
-    page_summary()
-elif st.session_state.page == "leaderboard":
-    page_leaderboard()
-
-# ============================================================
-# FOOTER
-# ============================================================
-st.write("")
-st.markdown("""
-<div class='footer'>
-    <div class='footer-team'>Noor Al Zakeebeh<span class='footer-divider'>|</span>Sara Shbeita<span class='footer-divider'>|</span>Tasneem Abu Thuher</div>
-    <div class='footer-uni'>The Hashemite University</div>
-    <div class='footer-copy'>Muhaaka — AI-powered mock interviews to help students practice with confidence</div>
-</div>
-""", unsafe_allow_html=True)
+    left, c
