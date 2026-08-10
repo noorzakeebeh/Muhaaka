@@ -22,8 +22,6 @@ st.set_page_config(
 # ============================================================
 DEFAULT_NUM_QUESTIONS = 3
 NUM_QUESTIONS_OPTIONS = [1, 2, 3, 4, 5]
-# Angular position (degrees, CSS rotate convention) of each number on the radial dial,
-# spaced 72° apart starting at the top and going clockwise.
 LEADERBOARD_FILE = "leaderboard.json"
 LEADERBOARD_TOP_N = 5
 KIOSK_REFRESH_SECONDS = 20
@@ -415,12 +413,6 @@ div.stButton>button:hover{
     box-shadow:0 0 12px rgba(47,129,247,.10)!important;
 }
 
-.numq-hint{
-    text-align:center;
-    color:#6F86A9!important;
-    font-size:12px;
-    margin-top:8px;
-}
 
 /* ---------- Start button ---------- */
 .st-key-start_interview_btn button{
@@ -472,7 +464,6 @@ div.stButton>button:hover{
     font-size:17px;
 }
 
-.feature p,
 .feature-text{
     color:#8EA5C8!important;
     font-size:13px;
@@ -861,7 +852,6 @@ def render_question_count_selector() -> int:
                     <div class='question-text'>Question{"s" if current != 1 else ""}</div>
                 </div>
             </div>
-            <div class='numq-hint'>Use the arrows to change the number of questions</div>
             """,
             unsafe_allow_html=True,
         )
@@ -927,7 +917,7 @@ with st.sidebar:
 # PAGE: HOME
 # ============================================================
 def page_home():
-    left, center, right = st.columns([1, 2.25, 1])
+    center = st.columns([1, 2.25, 1])[1]
 
     with center:
         with st.container(border=True, key="card_home"):
@@ -1066,7 +1056,7 @@ def page_interview():
                 if audio_value is not None:
                     with st.spinner("Transcribing your answer..."):
                         answer_text = transcribe_audio(audio_value)
-                elif "typed_answer" in dir() and typed_answer.strip():
+                elif typed_answer.strip():
                     answer_text = typed_answer.strip()
 
                 if not answer_text:
@@ -1129,7 +1119,7 @@ def page_feedback():
 # PAGE: SUMMARY / FINAL REPORT
 # ============================================================
 def page_summary():
-    left, center, right = st.columns([1, 3, 1])
+    center = st.columns([1, 3, 1])[1]
 
     with center:
         with st.container(border=True, key="card_summary"):
@@ -1176,7 +1166,7 @@ def page_summary():
 # PAGE: LEADERBOARD
 # ============================================================
 def page_leaderboard():
-    left, center, right = st.columns([1, 3, 1])
+    center = st.columns([1, 3, 1])[1]
 
     with center:
         with st.container(border=True, key="card_leaderboard"):
