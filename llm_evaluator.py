@@ -3,20 +3,12 @@ import json
 from dotenv import load_dotenv
 from groq import Groq, APITimeoutError, APIError
 
-# Load variables from a local .env file (never commit .env - see .gitignore)
 load_dotenv()
 
-# No hardcoded fallback key. Fails loudly if the env var is missing instead
-# of silently shipping a leaked/burned key inside the source code.
 GROQ_API_KEY = os.environ["GROQ_API_KEY"]
 
-# NOTE: llama-3.3-70b-versatile is deprecated on Groq (shutdown announced for
-# Aug 16, 2026). Using openai/gpt-oss-120b instead, which Groq recommends as
-# the direct replacement and which also supports JSON mode.
 MODEL_NAME = "openai/gpt-oss-120b"
 
-# Same latency budget logic as audio_handler.py: don't let a single call
-# blow past the 3-5s target if Groq stalls.
 client = Groq(api_key=GROQ_API_KEY, timeout=8.0, max_retries=1)
 
 
@@ -135,23 +127,5 @@ def evaluate_interview_answer(user_name, question, user_answer):
             "gaps": ["You could structure your answer a bit more clearly."],
             "tips": ["Try using standard technical terms when explaining your thoughts."],
             "model_answer": "Focus on the core definitions clearly.",
-            "raw_text": raw_text,
         }
 
-
-# ==========================================
-#  Testing
-# ==========================================
-if __name__ == "__main__":
-    print("⏳ Testing Real-World Question Generation...")
-    q = generate_interview_question("CIS")
-    print(f"❓ Real-World Question: {q}\n")
-    print("-" * 60)
-
-    print("⏳ Testing JSON Evaluation...")
-    sample_name = "Omar"
-    sample_answer = "Encryption is two-way and uses keys, while Hashing is one-way mainly for passwords."
-
-    evaluation = evaluate_interview_answer(sample_name, q, sample_answer)
-    print("\n📊 Output JSON:")
-    print(json.dumps(evaluation, indent=4, ensure_ascii=False))
