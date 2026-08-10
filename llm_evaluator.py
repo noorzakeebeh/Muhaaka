@@ -26,19 +26,48 @@ class EvaluationError(Exception):
     pass
 
 
-def generate_interview_question(selected_domain):
+def generate_interview_question(selected_domain, difficulty="Medium"):
+    """Generate one interview question at the requested difficulty level."""
+    difficulty = str(difficulty).strip().title()
+    difficulty_rules = {
+        "Easy": """
+        - Difficulty: Beginner / Foundational
+        - Focus on definitions, basic concepts, simple practical examples, and
+          straightforward technical situations suitable for a university student
+          or fresh graduate.
+        - Avoid advanced architecture, complex algorithms, and multi-step trade-offs.
+        """,
+        "Medium": """
+        - Difficulty: Intermediate / Core Concepts
+        - Focus on practical concepts, common real-world scenarios, trade-offs,
+          and standard architectural/coding/system questions expected from a
+          university student or fresh graduate.
+        """,
+        "Hard": """
+        - Difficulty: Advanced
+        - Focus on deeper technical reasoning, system design, architecture,
+          performance, security, debugging, trade-offs, or complex real-world
+          scenarios appropriate for a strong candidate.
+        - Require the candidate to explain reasoning, not merely recall a definition.
+        """,
+    }
+    if difficulty not in difficulty_rules:
+        difficulty = "Medium"
+
     prompt = f"""
     You are an expert technical interviewer at a tech career fair.
     Generate ONE real-world, frequently asked technical interview question commonly used in actual job interviews for a university student or fresh graduate majoring in: {selected_domain}.
 
     Difficulty & Style Guidelines:
-    - **Relevance**: Focus on real-world industry interview questions (core concepts, trade-offs, standard architectural/coding/system questions).
-    - **Difficulty**: Intermediate / Core Concepts (practical and practical-scenario oriented).
+    - **Relevance**: Focus on real-world industry interview questions.
+    {difficulty_rules[difficulty]}
     - **Length**: The question must be answerable verbally in about 45 seconds (3-4 spoken sentences), since candidates now get roughly 45 seconds to respond.
 
     Requirements:
     1. Write the question entirely in clear, professional English.
-    2. Output ONLY the question text. Do NOT include any introductory words, quotes, or headers.
+    2. Output ONLY the question text. Do NOT include any introductory words, quotes,
+       difficulty labels, numbering, or headers.
+    3. Match the requested difficulty closely; do not silently downgrade or upgrade it.
     """
 
     try:
@@ -137,7 +166,7 @@ def evaluate_interview_answer(user_name, question, user_answer):
 # ==========================================
 if __name__ == "__main__":
     print("⏳ Testing Real-World Question Generation...")
-    q = generate_interview_question("CIS")
+    q = generate_interview_question("CIS", "Medium")
     print(f"❓ Real-World Question: {q}\n")
     print("-" * 60)
 
