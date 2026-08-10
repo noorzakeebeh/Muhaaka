@@ -24,8 +24,6 @@ DEFAULT_NUM_QUESTIONS = 3
 NUM_QUESTIONS_OPTIONS = [1, 2, 3, 4, 5]
 # Angular position (degrees, CSS rotate convention) of each number on the radial dial,
 # spaced 72° apart starting at the top and going clockwise.
-ANGLE_BY_NUM = {1: -90, 2: -18, 3: 54, 4: 126, 5: 198}
-
 LEADERBOARD_FILE = "leaderboard.json"
 LEADERBOARD_TOP_N = 5
 KIOSK_REFRESH_SECONDS = 20
@@ -70,10 +68,10 @@ def transcribe_audio(audio_file) -> str:
         return ""
 
 
-def get_question(specialization: str) -> str:
-    """Generates a real interview question via Member 2's LLM wrapper."""
+def get_question(specialization: str, difficulty: str) -> str:
+    """Generates a real interview question at the selected difficulty."""
     try:
-        return generate_interview_question(specialization)
+        return generate_interview_question(specialization, difficulty)
     except EvaluationError as e:
         st.error(f"❓ {e}")
         return "We couldn't generate a question right now — please try starting again."
@@ -148,79 +146,336 @@ def get_today_leaderboard(top_n: int = LEADERBOARD_TOP_N) -> list:
 st.markdown("""
 <style>
 
+/* ---------- Global dark glassmorphism ---------- */
 .stApp{
-
-background:linear-gradient(135deg,#071021,#0E1B2A,#162B47);
-color:white;
+    background:
+        radial-gradient(circle at 88% 10%, rgba(0,126,255,.16), transparent 28%),
+        radial-gradient(circle at 8% 78%, rgba(34,102,220,.12), transparent 30%),
+        linear-gradient(135deg,#080E1E 0%,#0B172A 52%,#09152A 100%);
+    color:#F5F8FF;
+    min-height:100vh;
 }
 
-h1,h2,h3,h4,p,label,span{
-color:white!important;
+[data-testid="stAppViewContainer"] > .main{
+    background:transparent;
+}
+
+h1,h2,h3,h4,h5,h6,p,label,span,div{
+    color:#F5F8FF;
 }
 
 .block-container{
-padding-top:2rem;
-padding-left:8%;
-padding-right:8%;
+    max-width:1180px;
+    padding-top:1.6rem!important;
+    padding-left:2.2rem!important;
+    padding-right:2.2rem!important;
+    padding-bottom:1rem!important;
 }
 
+/* ---------- Header / logo ---------- */
 .title{
-font-size:60px;
-font-weight:800;
-text-align:center;
-margin-bottom:10px;
-letter-spacing:1px;
+    font-size:60px;
+    font-weight:800;
+    text-align:center;
+    margin-bottom:10px;
+    letter-spacing:1px;
+    text-shadow:0 0 24px rgba(67,155,255,.25);
 }
 
 .subtitle{
-font-size:22px;
-text-align:center;
-color:#AFC8FF;
-margin-bottom:40px;
+    font-size:22px;
+    text-align:center;
+    color:#AFC8FF!important;
+    margin-bottom:34px;
 }
 
-.st-key-card_home, .st-key-card_interview, .st-key-card_feedback, .st-key-card_summary, .st-key-card_leaderboard{
-background:#17263A!important;
-padding:10px 15px!important;
-border-radius:20px!important;
-border:1px solid #27496D!important;
-box-shadow:0 0 18px rgba(0,0,0,.35)!important;
+.home-brand{
+    text-align:center;
+    margin:2px 0 28px;
 }
 
-.stTextInput input, .stTextArea textarea{
-background:#22344D;
-color:white;
-border-radius:12px;
-border:1px solid #2A4E73;
+.home-mic{
+    width:64px;
+    height:64px;
+    margin:0 auto 10px;
+    border-radius:18px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:34px;
+    background:linear-gradient(145deg,rgba(70,147,255,.22),rgba(23,71,130,.16));
+    border:1px solid rgba(104,174,255,.30);
+    box-shadow:0 0 26px rgba(30,133,255,.20), inset 0 0 18px rgba(255,255,255,.03);
 }
 
+.home-brand-title{
+    font-size:52px;
+    line-height:1;
+    font-weight:850;
+    letter-spacing:1px;
+    text-shadow:0 0 28px rgba(60,153,255,.20);
+}
+
+.home-brand-subtitle{
+    margin-top:10px;
+    font-size:20px;
+    color:#D5E1F7!important;
+}
+
+/* ---------- Main cards ---------- */
+.st-key-card_home,
+.st-key-card_interview,
+.st-key-card_feedback,
+.st-key-card_summary,
+.st-key-card_leaderboard{
+    background:rgba(18,30,52,.58)!important;
+    padding:28px 30px!important;
+    border-radius:26px!important;
+    border:1px solid rgba(93,154,231,.24)!important;
+    box-shadow:
+        0 0 32px rgba(0,110,255,.10),
+        inset 0 0 24px rgba(255,255,255,.018)!important;
+    backdrop-filter:blur(18px);
+    -webkit-backdrop-filter:blur(18px);
+}
+
+/* ---------- Inputs ---------- */
+.stTextInput input,
+.stTextArea textarea,
+[data-baseweb="select"] > div{
+    background:rgba(23,38,64,.72)!important;
+    color:#F4F8FF!important;
+    border-radius:13px!important;
+    border:1px solid rgba(87,143,210,.28)!important;
+    box-shadow:inset 0 0 14px rgba(255,255,255,.018);
+}
+
+.stTextInput input:focus,
+.stTextArea textarea:focus,
+[data-baseweb="select"] > div:focus-within{
+    border-color:#3497FF!important;
+    box-shadow:0 0 0 1px rgba(52,151,255,.35),0 0 18px rgba(52,151,255,.16)!important;
+}
+
+[data-baseweb="select"] *{
+    color:#F4F8FF!important;
+}
+
+label[data-testid="stWidgetLabel"] p,
+.stTextInput label,
+.stSelectbox label{
+    color:#DDE9FA!important;
+    font-weight:650!important;
+}
+
+/* ---------- Buttons: default ---------- */
 div.stButton>button{
-background:linear-gradient(90deg,#2F81F7,#38BDF8);
-border:none;
-height:56px;
-font-size:19px;
-font-weight:bold;
-border-radius:14px;
-color:white;
-transition:.25s;
-width:100%;
+    background:linear-gradient(90deg,#2F81F7,#38BDF8);
+    border:1px solid rgba(127,196,255,.20);
+    height:52px;
+    font-size:17px;
+    font-weight:750;
+    border-radius:14px;
+    color:white;
+    transition:all .22s ease;
+    width:100%;
+    box-shadow:0 8px 20px rgba(18,109,221,.16);
 }
 
 div.stButton>button:hover{
-transform:scale(1.02);
-box-shadow:0 0 20px #38BDF8;
+    transform:translateY(-1px);
+    box-shadow:0 0 24px rgba(56,189,248,.42);
+    border-color:rgba(111,190,255,.48);
 }
 
+/* ---------- Difficulty selector ---------- */
+.difficulty-heading{
+    text-align:center;
+    font-size:16px;
+    font-weight:750;
+    color:#EAF2FF!important;
+    margin:24px 0 12px;
+}
+
+.difficulty-caption{
+    text-align:center;
+    color:#91A8C9!important;
+    font-size:13px;
+    margin-top:7px;
+}
+
+.st-key-difficulty_easy button,
+.st-key-difficulty_medium button,
+.st-key-difficulty_hard button{
+    height:52px!important;
+    border-radius:28px!important;
+    background:rgba(255,255,255,.045)!important;
+    border:1px solid rgba(101,146,202,.28)!important;
+    color:#E8F0FF!important;
+    box-shadow:inset 0 0 14px rgba(255,255,255,.018)!important;
+    font-size:16px!important;
+    font-weight:700!important;
+}
+
+.st-key-difficulty_easy button:hover,
+.st-key-difficulty_medium button:hover,
+.st-key-difficulty_hard button:hover{
+    background:rgba(47,129,247,.10)!important;
+    border-color:rgba(79,160,255,.55)!important;
+    box-shadow:0 0 16px rgba(47,129,247,.18)!important;
+}
+
+/* Active difficulty gets the neon-blue selected treatment. */
+.st-key-difficulty_easy.active-difficulty button,
+.st-key-difficulty_medium.active-difficulty button,
+.st-key-difficulty_hard.active-difficulty button{
+    background:linear-gradient(180deg,rgba(44,139,255,.24),rgba(24,73,135,.25))!important;
+    border:1px solid #3FA0FF!important;
+    box-shadow:
+        0 0 9px rgba(47,129,247,.55),
+        0 0 24px rgba(47,129,247,.25),
+        inset 0 0 14px rgba(86,174,255,.12)!important;
+}
+
+/* ---------- Digital interview-length meter ---------- */
+.numq-label{
+    text-align:center;
+    color:#EAF2FF!important;
+    font-weight:750;
+    font-size:16px;
+    margin:25px 0 14px;
+}
+
+.question-meter-wrap{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:18px;
+    margin:0 auto 8px;
+}
+
+.question-meter{
+    width:148px;
+    height:148px;
+    border-radius:50%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+    background:radial-gradient(circle at 50% 48%,rgba(24,42,72,.96) 0 52%,rgba(11,23,42,.72) 53% 100%);
+    border:7px solid rgba(55,142,246,.13);
+    box-shadow:
+        0 0 0 2px rgba(64,153,255,.10),
+        0 0 18px rgba(47,129,247,.34),
+        0 0 38px rgba(47,129,247,.13),
+        inset 0 0 20px rgba(28,112,221,.18);
+}
+
+.question-meter::before{
+    content:"";
+    position:absolute;
+    inset:-8px;
+    border-radius:50%;
+    border:2px solid transparent;
+    border-top-color:#3C9BFF;
+    border-right-color:rgba(60,155,255,.50);
+    transform:rotate(-38deg);
+    filter:drop-shadow(0 0 7px rgba(60,155,255,.75));
+}
+
+.question-number{
+    font-size:42px;
+    line-height:1;
+    font-weight:850;
+    color:#F6FAFF!important;
+    text-shadow:0 0 16px rgba(74,168,255,.38);
+}
+
+.question-text{
+    margin-top:6px;
+    font-size:14px;
+    color:#AFC8FF!important;
+    font-weight:650;
+}
+
+.st-key-numq_prev_wrap button,
+.st-key-numq_next_wrap button{
+    width:44px!important;
+    min-width:44px!important;
+    height:44px!important;
+    border-radius:50%!important;
+    padding:0!important;
+    font-size:22px!important;
+    background:rgba(25,48,81,.65)!important;
+    border:1px solid rgba(83,147,216,.30)!important;
+    box-shadow:0 0 12px rgba(47,129,247,.10)!important;
+}
+
+.numq-hint{
+    text-align:center;
+    color:#6F86A9!important;
+    font-size:12px;
+    margin-top:8px;
+}
+
+/* ---------- Start button ---------- */
+.st-key-start_interview_btn button{
+    height:58px!important;
+    border-radius:17px!important;
+    font-size:18px!important;
+    background:linear-gradient(90deg,#2385F5,#36B8FF)!important;
+    border:1px solid rgba(131,205,255,.32)!important;
+    box-shadow:
+        0 0 18px rgba(38,141,255,.45),
+        0 8px 25px rgba(16,99,211,.25)!important;
+}
+
+.st-key-start_interview_btn button:hover{
+    transform:translateY(-2px)!important;
+    box-shadow:
+        0 0 28px rgba(57,174,255,.62),
+        0 10px 30px rgba(16,99,211,.28)!important;
+}
+
+.st-key-secondary_home_btn button{
+    background:rgba(255,255,255,.035)!important;
+    border:1px solid rgba(92,140,198,.22)!important;
+    color:#AFC8FF!important;
+    box-shadow:none!important;
+    height:46px!important;
+    font-size:14px!important;
+}
+
+/* ---------- Feature cards ---------- */
 .feature{
-background:#17263A;
-padding:25px;
-border-radius:18px;
-text-align:center;
-border:1px solid #2A4E73;
-height:170px;
+    background:rgba(18,30,52,.55);
+    padding:22px 18px;
+    border-radius:20px;
+    text-align:left;
+    border:1px solid rgba(92,148,218,.19);
+    min-height:132px;
+    box-shadow:0 0 20px rgba(0,110,255,.08), inset 0 0 18px rgba(255,255,255,.015);
+    backdrop-filter:blur(14px);
 }
 
-.feature h3{ margin-top:10px; }
+.feature h1{
+    margin:0 0 8px 0;
+    font-size:27px;
+}
+
+.feature h3{
+    margin:0 0 7px 0;
+    font-size:17px;
+}
+
+.feature p,
+.feature-text{
+    color:#8EA5C8!important;
+    font-size:13px;
+    line-height:1.45;
+}
+
 
 .footer{
 text-align:center;
@@ -255,252 +510,140 @@ color:#5E7292!important;
 font-size:12px;
 }
 
-/* Interview screen */
+/* ---------- Interview screen ---------- */
 .q-badge{
-display:inline-block;
-background:#22344D;
-color:#8FD3FF!important;
-padding:6px 16px;
-border-radius:20px;
-font-size:14px;
-font-weight:600;
-margin-bottom:16px;
-border:1px solid #2A4E73;
+    display:inline-block;
+    background:rgba(47,129,247,.10);
+    color:#8FD3FF!important;
+    padding:6px 16px;
+    border-radius:20px;
+    font-size:14px;
+    font-weight:650;
+    margin-bottom:16px;
+    border:1px solid rgba(47,129,247,.30);
 }
 
 .q-text{
-font-size:26px;
-font-weight:600;
-line-height:1.5;
-margin-bottom:10px;
+    font-size:26px;
+    font-weight:600;
+    line-height:1.5;
+    margin-bottom:10px;
 }
 
 .timer-hint{
-color:#9FB4D1!important;
-font-size:14px;
-margin-bottom:20px;
+    color:#9FB4D1!important;
+    font-size:14px;
+    margin-bottom:20px;
 }
 
-/* Feedback screen */
-.score-ring{
-width:110px;
-height:110px;
-border-radius:50%;
-background:conic-gradient(#38BDF8 var(--pct), #22344D 0);
-display:flex;
-align-items:center;
-justify-content:center;
-margin:0 auto 20px auto;
-}
-
-.score-ring-inner{
-width:88px;
-height:88px;
-border-radius:50%;
-background:#17263A;
-display:flex;
-align-items:center;
-justify-content:center;
-font-size:26px;
-font-weight:800;
-color:#38BDF8!important;
-}
-
-.score-label{
-text-align:center;
-font-size:18px;
-font-weight:700;
-color:#8FD3FF!important;
-margin-bottom:20px;
-}
-
-.feedback-block{
-background:#101c2c;
-border-left:4px solid #2F81F7;
-padding:14px 18px;
-border-radius:10px;
-margin-bottom:14px;
-}
-
-.feedback-block h4{
-margin:0 0 6px 0;
-font-size:15px;
-color:#8FD3FF!important;
-}
-
-.progress-label{
-text-align:center;
-color:#AFC8FF!important;
-margin-bottom:6px;
-font-size:14px;
-}
-
-/* Recording status hint */
 .rec-status{
-display:flex;
-align-items:center;
-gap:10px;
-padding:12px 18px;
-border-radius:14px;
-font-size:15px;
-font-weight:600;
-margin-bottom:14px;
-border:1px solid transparent;
-transition:.25s;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:12px 18px;
+    border-radius:14px;
+    font-size:15px;
+    font-weight:600;
+    margin-bottom:14px;
+    border:1px solid transparent;
 }
 
 .rec-status.ready{
-background:rgba(47,129,247,.12);
-border-color:#2F81F7;
-color:#8FD3FF!important;
+    background:rgba(47,129,247,.12);
+    border-color:#2F81F7;
+    color:#8FD3FF!important;
 }
 
 .rec-status.done{
-background:rgba(56,189,248,.12);
-border-color:#22c55e;
-color:#7CF5A6!important;
+    background:rgba(56,189,248,.12);
+    border-color:#22c55e;
+    color:#7CF5A6!important;
 }
 
-/* Leaderboard */
+.progress-label{
+    text-align:center;
+    color:#AFC8FF!important;
+    margin-bottom:6px;
+    font-size:14px;
+}
+
+/* ---------- Feedback screen ---------- */
+.score-ring{
+    width:110px;
+    height:110px;
+    border-radius:50%;
+    background:conic-gradient(#38BDF8 var(--pct), #22344D 0);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    margin:0 auto 20px auto;
+}
+
+.score-ring-inner{
+    width:88px;
+    height:88px;
+    border-radius:50%;
+    background:#17263A;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:26px;
+    font-weight:800;
+    color:#38BDF8!important;
+}
+
+.score-label{
+    text-align:center;
+    font-size:18px;
+    font-weight:700;
+    color:#8FD3FF!important;
+    margin-bottom:20px;
+}
+
+.feedback-block{
+    background:rgba(16,28,44,.72);
+    border-left:4px solid #2F81F7;
+    padding:14px 18px;
+    border-radius:10px;
+    margin-bottom:14px;
+}
+
+.feedback-block h4{
+    margin:0 0 6px 0;
+    font-size:15px;
+    color:#8FD3FF!important;
+}
+
+/* ---------- Leaderboard ---------- */
 .lb-row{
-display:flex;
-align-items:center;
-justify-content:space-between;
-background:#17263A;
-border:1px solid #2A4E73;
-border-radius:16px;
-margin-bottom:12px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:rgba(23,38,58,.72);
+    border:1px solid rgba(42,78,115,.55);
+    border-radius:16px;
+    margin-bottom:12px;
 }
 
-.lb-name{
-font-weight:700;
-}
+.lb-name{font-weight:700;}
+.lb-sub{color:#9FB4D1!important;}
+.lb-score{font-weight:800;color:#38BDF8!important;}
 
-.lb-sub{
-color:#9FB4D1!important;
-}
-
-.lb-score{
-font-weight:800;
-color:#38BDF8!important;
-}
-
-/* Number-of-questions — radial dial selector */
-.numq-label{
-text-align:center;
-color:#AFC8FF!important;
-font-weight:700;
-font-size:15px;
-margin-bottom:14px;
-letter-spacing:.3px;
-}
-
-.numq-caption{
-text-align:center;
-color:#8FD3FF!important;
-font-weight:800;
-font-size:19px;
-margin-top:14px;
-margin-bottom:6px;
-}
-
-.st-key-numq_dial{
-position:relative!important;
-display:block!important;
-box-sizing:content-box!important;
-width:220px!important;
-height:220px!important;
-min-height:220px!important;
-margin:0 auto!important;
-padding:0!important;
-border:1px solid #2A4E73!important;
-border-radius:50%!important;
-box-shadow:0 0 22px rgba(0,0,0,.35)!important;
-overflow:visible!important;
-transition:background .3s ease!important;
-}
-
-/* Streamlit wraps our content in several layers of generic divs
-   (block/column/element-container/etc). Flatten all of them so they
-   don't add their own box/height/flex-gap — only our own dial pieces
-   (the hole and the 5 numbered chips) keep a real box and are
-   positioned directly against .st-key-numq_dial itself. */
-.st-key-numq_dial div:not(.numq-hole):not([class*="st-key-numq_dial_btn_"]){
-display:contents!important;
-}
-
-.numq-hole{
-position:absolute!important;
-top:50%!important;
-left:50%!important;
-width:108px!important;
-height:108px!important;
-border-radius:50%!important;
-background:#17263A!important;
-transform:translate(-50%,-50%)!important;
-box-shadow:inset 0 0 14px rgba(0,0,0,.45)!important;
-z-index:1!important;
-}
-
-/* Chip shape shared by every numbered button on the dial */
-.st-key-numq_dial div.stButton>button{
-width:46px!important;
-height:46px!important;
-min-width:46px!important;
-padding:0!important;
-border-radius:50%!important;
-border:1px solid #33507A!important;
-background:#101d30!important;
-color:#AFC8FF!important;
-font-size:16px!important;
-font-weight:700!important;
-box-shadow:0 2px 6px rgba(0,0,0,.4)!important;
-transition:all .25s ease!important;
-}
-
-.st-key-numq_dial div.stButton>button:hover{
-background:rgba(47,129,247,.22)!important;
-color:#CFE1FF!important;
-}
-
-/* Fixed angular position of each chip around the ring (72° apart) */
-.st-key-numq_dial_btn_1{
-position:absolute!important;top:50%!important;left:50%!important;margin:0!important;z-index:3!important;
-transform:translate(-50%,-50%) rotate(-90deg) translate(0,-82px) rotate(90deg)!important;
-}
-.st-key-numq_dial_btn_2{
-position:absolute!important;top:50%!important;left:50%!important;margin:0!important;z-index:3!important;
-transform:translate(-50%,-50%) rotate(-18deg) translate(0,-82px) rotate(18deg)!important;
-}
-.st-key-numq_dial_btn_3{
-position:absolute!important;top:50%!important;left:50%!important;margin:0!important;z-index:3!important;
-transform:translate(-50%,-50%) rotate(54deg) translate(0,-82px) rotate(-54deg)!important;
-}
-.st-key-numq_dial_btn_4{
-position:absolute!important;top:50%!important;left:50%!important;margin:0!important;z-index:3!important;
-transform:translate(-50%,-50%) rotate(126deg) translate(0,-82px) rotate(-126deg)!important;
-}
-.st-key-numq_dial_btn_5{
-position:absolute!important;top:50%!important;left:50%!important;margin:0!important;z-index:3!important;
-transform:translate(-50%,-50%) rotate(198deg) translate(0,-82px) rotate(-198deg)!important;
-}
-
-/* Hide Streamlit's default chrome (top toolbar/menu with the GitHub/Deploy
-   icons, the colored decoration line, and the footer) on both desktop and
-   mobile, so only our own header/title show. */
+/* ---------- Streamlit chrome ---------- */
 #MainMenu{visibility:hidden!important;}
-footer{visibility:hidden!important;height:0!important;}
-header[data-testid="stHeader"]{
-display:none!important;
-height:0!important;
-}
+header[data-testid="stHeader"]{display:none!important;height:0!important;}
 [data-testid="stToolbar"]{visibility:hidden!important;height:0!important;}
 [data-testid="stDecoration"]{display:none!important;height:0!important;}
 [data-testid="stStatusWidget"]{visibility:hidden!important;height:0!important;}
 .stDeployButton{display:none!important;}
 
-.block-container{
-padding-top:1.5rem!important;
+/* ---------- Responsive ---------- */
+@media (max-width: 760px){
+    .block-container{padding-left:1rem!important;padding-right:1rem!important;}
+    .home-brand-title{font-size:40px;}
+    .home-brand-subtitle{font-size:16px;}
+    .st-key-card_home{padding:22px 18px!important;}
+    .feature{min-height:120px;padding:18px 14px;}
 }
 
 </style>
@@ -514,6 +657,7 @@ defaults = {
     "name": "",
     "specialization": SPECIALIZATIONS[0],
     "num_questions": DEFAULT_NUM_QUESTIONS,
+    "difficulty": "Medium",
     "q_index": 0,
     "current_question": "",
     "current_feedback": None,  # dict from evaluate_interview_answer()
@@ -532,10 +676,12 @@ def reset_session():
     """Resets a session for a brand-new interview, while preserving the
     operator's chosen question count and guaranteeing a fresh audio widget."""
     preserved_num_questions = st.session_state.get("num_questions", DEFAULT_NUM_QUESTIONS)
+    preserved_difficulty = st.session_state.get("difficulty", "Medium")
     next_audio_seed = st.session_state.get("audio_key_seed", 0) + 1
     for key, value in defaults.items():
         st.session_state[key] = value
     st.session_state.num_questions = preserved_num_questions
+    st.session_state.difficulty = preserved_difficulty
     st.session_state.audio_key_seed = next_audio_seed
 
 
@@ -657,62 +803,75 @@ def render_leaderboard_content(kiosk: bool = False):
         )
 
 
-def render_question_count_selector() -> int:
-    """
-    Renders the number-of-questions choice as a radial dial: a circular
-    ring split into 5 wedges (1-5) with a numbered chip on each, the
-    selected wedge tinted and its chip popped outward with a soft glow,
-    and a caption below showing the current choice. Returns the
-    selected integer value.
-    """
-    current = st.session_state.num_questions
+def render_difficulty_selector() -> str:
+    """Render Easy / Medium / Hard as three glassmorphic interactive buttons."""
+    current = st.session_state.get("difficulty", "Medium")
 
-    st.markdown("<div class='numq-label'>🎚️ Choose Interview Length</div>", unsafe_allow_html=True)
+    st.markdown("<div class='difficulty-heading'>🎚️ Select Question Difficulty</div>", unsafe_allow_html=True)
+    c1, c2, c3 = st.columns(3)
+    options = [(c1, "Easy", "🟢 Easy", "difficulty_easy"),
+               (c2, "Medium", "🟡 Medium", "difficulty_medium"),
+               (c3, "Hard", "🔴 Hard", "difficulty_hard")]
 
-    with st.container(key="numq_dial"):
-        st.markdown("<div class='numq-hole'></div>", unsafe_allow_html=True)
-        for n in NUM_QUESTIONS_OPTIONS:
-            if st.button(str(n), key=f"numq_dial_btn_{n}"):
-                st.session_state.num_questions = n
-                current = n
+    for col, value, label, key in options:
+        with col:
+            with st.container(key=key):
+                if st.button(label, key=f"{key}_button", use_container_width=True):
+                    st.session_state.difficulty = value
+                    current = value
 
-    # Tint the selected wedge of the ring and pop its chip outward with a soft glow.
-    base_color = "#17263A"
-    selected_color = "rgba(47,129,247,.35)"
-    stops = []
-    for i, n in enumerate(NUM_QUESTIONS_OPTIONS):
-        start = i * 72
-        end = start + 72
-        color = selected_color if n == current else base_color
-        stops.append(f"{color} {start}deg {end}deg")
-    gradient = "conic-gradient(from -126deg, " + ", ".join(stops) + ")"
-    angle = ANGLE_BY_NUM[current]
+    st.markdown(
+        f"<div class='difficulty-caption'>Selected: <strong>{html.escape(current)}</strong></div>",
+        unsafe_allow_html=True,
+    )
 
     st.markdown(
         f"""
         <style>
-        .st-key-numq_dial{{background:{gradient}!important;}}
-        .st-key-numq_dial_btn_{current}{{
-            transform:translate(-50%,-50%) rotate({angle}deg) translate(0,-90px) rotate({-angle}deg)!important;
-        }}
-        .st-key-numq_dial_btn_{current} button{{
-            width:56px!important;
-            height:56px!important;
-            min-width:56px!important;
-            background:rgba(47,129,247,.22)!important;
-            border-color:rgba(94,164,255,.6)!important;
-            color:#CFE1FF!important;
-            box-shadow:0 0 10px rgba(47,129,247,.30), inset 0 0 0 1px rgba(94,164,255,.4)!important;
+        .st-key-difficulty_{current.lower()} button {{
+            background:linear-gradient(180deg,rgba(44,139,255,.24),rgba(24,73,135,.25))!important;
+            border:1px solid #3FA0FF!important;
+            box-shadow:0 0 9px rgba(47,129,247,.55),0 0 24px rgba(47,129,247,.25),inset 0 0 14px rgba(86,174,255,.12)!important;
         }}
         </style>
         """,
         unsafe_allow_html=True,
     )
+    return current
 
-    st.markdown(
-        f"<div class='numq-caption'>{current} Question{'s' if current != 1 else ''}</div>",
-        unsafe_allow_html=True,
-    )
+
+def render_question_count_selector() -> int:
+    """Render a compact neon digital counter instead of the previous radial dial."""
+    current = int(st.session_state.get("num_questions", DEFAULT_NUM_QUESTIONS))
+
+    st.markdown("<div class='numq-label'>🎚️ Choose Interview Length</div>", unsafe_allow_html=True)
+    left, meter, right = st.columns([1, 2.2, 1])
+
+    with left:
+        with st.container(key="numq_prev_wrap"):
+            if st.button("‹", key="numq_prev", help="Previous question count"):
+                st.session_state.num_questions = max(NUM_QUESTIONS_OPTIONS[0], current - 1)
+                current = st.session_state.num_questions
+
+    with meter:
+        st.markdown(
+            f"""
+            <div class='question-meter-wrap'>
+                <div class='question-meter'>
+                    <div class='question-number'>{current}</div>
+                    <div class='question-text'>Question{"s" if current != 1 else ""}</div>
+                </div>
+            </div>
+            <div class='numq-hint'>Use the arrows to change the number of questions</div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with right:
+        with st.container(key="numq_next_wrap"):
+            if st.button("›", key="numq_next", help="Next question count"):
+                st.session_state.num_questions = min(NUM_QUESTIONS_OPTIONS[-1], current + 1)
+                current = st.session_state.num_questions
 
     return current
 
@@ -747,10 +906,11 @@ if KIOSK_MODE:
     st.stop()
 
 # ============================================================
-# HEADER (shown on every page)
+# HEADER (shown on secondary pages; home has its own hero card)
 # ============================================================
-st.markdown("<div class='title'>🎤 MUHAAKA</div>", unsafe_allow_html=True)
-st.markdown("<div class='subtitle'>AI Technical Interview Simulator</div>", unsafe_allow_html=True)
+if st.session_state.page != "home":
+    st.markdown("<div class='title'>🎤 MUHAAKA</div>", unsafe_allow_html=True)
+    st.markdown("<div class='subtitle'>AI Technical Interview Simulator</div>", unsafe_allow_html=True)
 
 # ============================================================
 # SIDEBAR (admin-only helpers — kept out of the visitor-facing pages)
@@ -768,39 +928,61 @@ with st.sidebar:
 # PAGE: HOME
 # ============================================================
 def page_home():
-    left, center, right = st.columns([1, 2, 1])
+    left, center, right = st.columns([1, 2.25, 1])
 
     with center:
         with st.container(border=True, key="card_home"):
-            name = st.text_input("👤 Full Name", value=st.session_state.name, placeholder="e.g. Sara Ahmed")
+            st.markdown(
+                """
+                <div class='home-brand'>
+                    <div class='home-mic'>🎙</div>
+                    <div class='home-brand-title'>MUHAAKA</div>
+                    <div class='home-brand-subtitle'>AI Technical Interview Simulator</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            name = st.text_input(
+                "👤 Full Name",
+                value=st.session_state.name,
+                placeholder="e.g. Sara Ahmed",
+            )
             specialization = st.selectbox(
                 "💻 Select IT Specialization",
                 SPECIALIZATIONS,
                 index=SPECIALIZATIONS.index(st.session_state.specialization),
             )
 
+            difficulty = render_difficulty_selector()
             num_questions = render_question_count_selector()
 
             st.write("")
+            with st.container(key="start_interview_btn"):
+                start_clicked = st.button("🚀 Start Interview", use_container_width=True, key="start_interview_home")
 
-            if st.button("🚀 Start Interview", use_container_width=True):
+            if start_clicked:
                 if not name.strip():
                     st.warning("Please enter your name before starting.")
                 else:
                     st.session_state.name = name.strip()
                     st.session_state.specialization = specialization
+                    st.session_state.difficulty = difficulty
                     st.session_state.num_questions = num_questions
                     st.session_state.q_index = 0
                     st.session_state.history = []
                     st.session_state.logged_index = -1
                     st.session_state.leaderboard_saved = False
-                    st.session_state.audio_key_seed += 1  # guarantee a clean recorder
+                    st.session_state.audio_key_seed += 1
                     with st.spinner("Preparing your first question..."):
-                        st.session_state.current_question = get_question(specialization)
+                        st.session_state.current_question = get_question(specialization, difficulty)
                     st.session_state.page = "interview"
                     st.rerun()
 
-            if st.button("🏆 View Today's Leaderboard", use_container_width=True):
+            with st.container(key="secondary_home_btn"):
+                leaderboard_clicked = st.button("🏆 View Today's Leaderboard", use_container_width=True, key="home_leaderboard")
+
+            if leaderboard_clicked:
                 st.session_state.page = "leaderboard"
                 st.rerun()
 
@@ -811,25 +993,25 @@ def page_home():
     with c1:
         st.markdown("""
         <div class="feature">
-        <h1>🤖</h1>
-        <h3>AI Evaluation</h3>
-        Receive instant feedback on every answer.
+            <h1>🤖</h1>
+            <h3>AI Evaluation</h3>
+            <div class="feature-text">Receive instant feedback on every answer.</div>
         </div>
         """, unsafe_allow_html=True)
     with c2:
         st.markdown("""
         <div class="feature">
-        <h1>🎙</h1>
-        <h3>Speech Recognition</h3>
-        Record your voice naturally.
+            <h1>🎙️</h1>
+            <h3>Speech Recognition</h3>
+            <div class="feature-text">Record your voice naturally.</div>
         </div>
         """, unsafe_allow_html=True)
     with c3:
         st.markdown("""
         <div class="feature">
-        <h1>📈</h1>
-        <h3>Performance Report</h3>
-        Discover strengths and weaknesses.
+            <h1>📈</h1>
+            <h3>Performance Report</h3>
+            <div class="feature-text">Discover strengths and weaknesses.</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -850,7 +1032,7 @@ def page_interview():
         st.progress(progress)
 
         with st.container(border=True, key="card_interview"):
-            st.markdown(f"<span class='q-badge'>{st.session_state.specialization}</span>", unsafe_allow_html=True)
+            st.markdown(f"<span class='q-badge'>{html.escape(st.session_state.specialization)} • {html.escape(st.session_state.difficulty)}</span>", unsafe_allow_html=True)
             st.markdown(f"<div class='q-text'>{html.escape(st.session_state.current_question)}</div>", unsafe_allow_html=True)
             st.markdown("<div class='timer-hint'>⏱ Aim to answer in about 45 seconds.</div>", unsafe_allow_html=True)
 
@@ -936,7 +1118,10 @@ def page_feedback():
                     st.session_state.q_index += 1
                     st.session_state.audio_key_seed += 1  # fresh recorder for the next question
                     with st.spinner("Preparing your next question..."):
-                        st.session_state.current_question = get_question(st.session_state.specialization)
+                        st.session_state.current_question = get_question(
+                            st.session_state.specialization,
+                            st.session_state.difficulty,
+                        )
                     st.session_state.page = "interview"
                 st.rerun()
 
