@@ -160,7 +160,7 @@ st.markdown("""
     background:transparent;
 }
 
-h1,h2,h3,h4,h5,h6,p,label,span,div{
+h1,h2,h3,h4,h5,h6,p,label,span{
     color:#F5F8FF;
 }
 
@@ -261,6 +261,28 @@ h1,h2,h3,h4,h5,h6,p,label,span,div{
     color:#F4F8FF!important;
 }
 
+/* Keep the native Streamlit specialization dropdown visible and readable. */
+[data-baseweb="popover"]{
+    background:#101D32!important;
+    border:1px solid #2A4E73!important;
+    border-radius:12px!important;
+    box-shadow:0 12px 35px rgba(0,0,0,.45),0 0 18px rgba(47,129,247,.12)!important;
+}
+
+[data-baseweb="popover"] [role="option"]{
+    background:#101D32!important;
+    color:#EAF2FF!important;
+}
+
+[data-baseweb="popover"] [role="option"] *{
+    color:#EAF2FF!important;
+}
+
+[data-baseweb="popover"] [role="option"]:hover,
+[data-baseweb="popover"] [role="option"][aria-selected="true"]{
+    background:rgba(47,129,247,.20)!important;
+}
+
 label[data-testid="stWidgetLabel"] p,
 .stTextInput label,
 .stSelectbox label{
@@ -297,13 +319,6 @@ div.stButton>button:hover{
     margin:24px 0 12px;
 }
 
-.difficulty-caption{
-    text-align:center;
-    color:#91A8C9!important;
-    font-size:13px;
-    margin-top:7px;
-}
-
 .st-key-difficulty_easy button,
 .st-key-difficulty_medium button,
 .st-key-difficulty_hard button{
@@ -323,18 +338,6 @@ div.stButton>button:hover{
     background:rgba(47,129,247,.10)!important;
     border-color:rgba(79,160,255,.55)!important;
     box-shadow:0 0 16px rgba(47,129,247,.18)!important;
-}
-
-/* Active difficulty gets the neon-blue selected treatment. */
-.st-key-difficulty_easy.active-difficulty button,
-.st-key-difficulty_medium.active-difficulty button,
-.st-key-difficulty_hard.active-difficulty button{
-    background:linear-gradient(180deg,rgba(44,139,255,.24),rgba(24,73,135,.25))!important;
-    border:1px solid #3FA0FF!important;
-    box-shadow:
-        0 0 9px rgba(47,129,247,.55),
-        0 0 24px rgba(47,129,247,.25),
-        inset 0 0 14px rgba(86,174,255,.12)!important;
 }
 
 /* ---------- Digital interview-length meter ---------- */
@@ -820,10 +823,6 @@ def render_difficulty_selector() -> str:
                     st.session_state.difficulty = value
                     current = value
 
-    st.markdown(
-        f"<div class='difficulty-caption'>Selected: <strong>{html.escape(current)}</strong></div>",
-        unsafe_allow_html=True,
-    )
 
     st.markdown(
         f"""
