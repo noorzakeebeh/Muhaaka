@@ -1,5 +1,6 @@
 import os
 import io
+import streamlit as st
 from dotenv import load_dotenv
 from groq import Groq, APITimeoutError, APIError
 
@@ -12,35 +13,20 @@ GROQ_API_KEY = PRIMARY_KEY or SECONDARY_KEY
 
 client = Groq(api_key=GROQ_API_KEY, timeout=8.0, max_retries=1)
 
+
 class TranscriptionError(Exception):
-    """Raised when audio transcription fails, so callers can distinguish
-    a real error from a normal (possibly empty) transcript string."""
+    """Raised when audio transcription fails."""
     pass
 
 
 def transcribe_audio_bytes(audio_bytes, filename="audio.wav"):
-    """
-    Transcribes audio bytes directly received from Streamlit's audio recorder
-    component into clean text using Groq's Whisper-large-v3 model.
-
-    Returns:
-        str: the transcribed text (may be an empty string if no audio given).
-
-    Raises:
-        TranscriptionError: if the Groq API call fails or times out. Callers
-        (the Streamlit UI layer) should catch this and show a friendly
-        message instead of letting the app crash mid-demo.
-    """
-    # 1. Validation check: If no audio bytes provided
     if not audio_bytes or len(audio_bytes) == 0:
         return ""
 
     try:
-        # 2. Convert raw audio bytes to an in-memory file object
         audio_file = io.BytesIO(audio_bytes)
         audio_file.name = filename
 
-        # 3. Transcribe via Groq Whisper API
         transcription = client.audio.transcriptions.create(
             file=(audio_file.name, audio_file.read()),
             model="whisper-large-v3",
@@ -54,7 +40,6 @@ def transcribe_audio_bytes(audio_bytes, filename="audio.wav"):
             temperature=0.0,
         )
 
-        # 4. Return clean text output
         return transcription.text.strip()
 
     except (APITimeoutError, APIError) as e:
@@ -62,7 +47,7 @@ def transcribe_audio_bytes(audio_bytes, filename="audio.wav"):
         if SECONDARY_KEY and client.api_key != SECONDARY_KEY:
             client = Groq(api_key=SECONDARY_KEY, timeout=8.0, max_retries=1)
             return transcribe_audio_bytes(audio_bytes, filename=filename)
-            
+
         print(f"[Audio Processing Error]: {str(e)}")
         raise TranscriptionError(
             "Could not transcribe the audio right now. Please try again."
