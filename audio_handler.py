@@ -57,14 +57,13 @@ def transcribe_audio_bytes(audio_bytes, filename="audio.wav"):
         # 4. Return clean text output
         return transcription.text.strip()
 
-    except APITimeoutError as e:
-        print(f"[Audio Processing Timeout]: {str(e)}")
-        raise TranscriptionError(
-            "Transcription timed out. Please try recording again."
-        ) from e
-
-    except APIError as e:
-        print(f"[Audio Processing API Error]: {str(e)}")
+    except (APITimeoutError, APIError) as e:
+        global client
+        if SECONDARY_KEY and client.api_key != SECONDARY_KEY:
+            client = Groq(api_key=SECONDARY_KEY, timeout=8.0, max_retries=1)
+            return transcribe_audio_bytes(audio_bytes, filename=filename)
+            
+        print(f"[Audio Processing Error]: {str(e)}")
         raise TranscriptionError(
             "Could not transcribe the audio right now. Please try again."
         ) from e
