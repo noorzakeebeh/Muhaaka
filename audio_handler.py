@@ -3,17 +3,14 @@ import io
 from dotenv import load_dotenv
 from groq import Groq, APITimeoutError, APIError
 
-# Load variables from a local .env file (never commit .env - see .gitignore)
 load_dotenv()
 
-# No hardcoded fallback key. The app fails loudly if the env var is missing,
-# instead of silently using a leaked/burned key.
-GROQ_API_KEY = os.environ["GROQ_API_KEY"]
+PRIMARY_KEY = st.secrets.get("GROQ_API_KEY") or os.environ.get("GROQ_API_KEY")
+SECONDARY_KEY = st.secrets.get("GROQ_API_KEY_SECONDARY") or os.environ.get("GROQ_API_KEY_SECONDARY")
 
-# Timeout keeps a single request from blowing past the 3-5s latency budget
-# if the Groq API stalls. max_retries=1 avoids doubling that wait on failure.
+GROQ_API_KEY = PRIMARY_KEY or SECONDARY_KEY
+
 client = Groq(api_key=GROQ_API_KEY, timeout=8.0, max_retries=1)
-
 
 class TranscriptionError(Exception):
     """Raised when audio transcription fails, so callers can distinguish
