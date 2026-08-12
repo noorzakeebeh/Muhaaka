@@ -20,6 +20,10 @@ class TranscriptionError(Exception):
 
 
 def transcribe_audio_bytes(audio_bytes, filename="audio.wav"):
+    """
+    Transcribes audio bytes directly received from Streamlit's audio recorder
+    component into clean text using Groq's Whisper-large-v3 model.
+    """
     if not audio_bytes or len(audio_bytes) == 0:
         return ""
 
