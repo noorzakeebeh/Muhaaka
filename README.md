@@ -8,11 +8,11 @@ Built as part of the **AIdea Team** to be showcased at an event hosted by **Al-H
 
 ## 👩‍💻 Team — (Hashemite University)
 
-| Name | Major | Role |
+| Name | Major | 
 |---|---|---|
-| Noor Al Zakeebeh | Computer Information Systems (CIS) | Data Architecture & System Integration (Environment Config, Data Flow & System Testing) |
-| Sara Shbeita | Artificial Intelligence (AI) | AI Logic & Audio Processing (Audio Handler, LLM Integration & Evaluation Logic) |
-| Tasneem Abu Thuher | Software Engineering (SWE) | Frontend & System Architecture (Streamlit UI/UX Layout, App Flow & User Experience) |
+| Noor Al Zakeebeh | Computer Information Systems (CIS) | 
+| Sara Shbeita | Artificial Intelligence (AI) |
+| Tasneem Abu Thuher | Software Engineering (SWE) | 
 
 All three members collaborated on integrating the final application.
 
