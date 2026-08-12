@@ -24,6 +24,8 @@ def transcribe_audio_bytes(audio_bytes, filename="audio.wav"):
     Transcribes audio bytes directly received from Streamlit's audio recorder
     component into clean text using Groq's Whisper-large-v3 model.
     """
+    global client
+
     if not audio_bytes or len(audio_bytes) == 0:
         return ""
 
@@ -47,7 +49,6 @@ def transcribe_audio_bytes(audio_bytes, filename="audio.wav"):
         return transcription.text.strip()
 
     except (APITimeoutError, APIError) as e:
-        global client
         if SECONDARY_KEY and client.api_key != SECONDARY_KEY:
             client = Groq(api_key=SECONDARY_KEY, timeout=8.0, max_retries=1)
             return transcribe_audio_bytes(audio_bytes, filename=filename)
