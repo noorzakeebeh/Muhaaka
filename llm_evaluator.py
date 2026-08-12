@@ -2,16 +2,15 @@ import os
 import json
 from dotenv import load_dotenv
 from groq import Groq, APITimeoutError, APIError
-
 load_dotenv()
 
-GROQ_API_KEY = os.environ["GROQ_API_KEY"]
+PRIMARY_KEY = st.secrets.get("GROQ_API_KEY") or os.environ.get("GROQ_API_KEY")
+SECONDARY_KEY = st.secrets.get("GROQ_API_KEY_SECONDARY") or os.environ.get("GROQ_API_KEY_SECONDARY")
 
+GROQ_API_KEY = PRIMARY_KEY or SECONDARY_KEY
 MODEL_NAME = "openai/gpt-oss-120b"
 
 client = Groq(api_key=GROQ_API_KEY, timeout=8.0, max_retries=1)
-
-
 class EvaluationError(Exception):
     """Raised when question generation or answer evaluation fails, so the
     Streamlit layer can show a friendly message instead of crashing mid-demo."""
