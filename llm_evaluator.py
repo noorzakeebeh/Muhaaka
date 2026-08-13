@@ -12,10 +12,30 @@ GROQ_API_KEY = PRIMARY_KEY or SECONDARY_KEY
 MODEL_NAME = "openai/gpt-oss-120b"
 
 client = Groq(api_key=GROQ_API_KEY, timeout=8.0, max_retries=1)
+
+
 class EvaluationError(Exception):
     """Raised when question generation or answer evaluation fails, so the
     Streamlit layer can show a friendly message instead of crashing mid-demo."""
     pass
+
+
+def _create_completion(**kwargs):
+    """
+    Wrapper around client.chat.completions.create() that mirrors the
+    failover behavior in audio_handler.py: if the primary key hits a
+    timeout or API error (e.g. rate limit), retry once with the
+    secondary key before giving up.
+    """
+    global client
+    try:
+        return client.chat.completions.create(**kwargs)
+    except (APITimeoutError, APIError) as e:
+        if SECONDARY_KEY and client.api_key != SECONDARY_KEY:
+            print(f"[Groq Failover]: primary key failed ({str(e)}), switching to secondary key")
+            client = Groq(api_key=SECONDARY_KEY, timeout=8.0, max_retries=1)
+            return client.chat.completions.create(**kwargs)
+        raise
 
 
 def generate_interview_question(selected_domain, difficulty="Medium"):
@@ -41,7 +61,7 @@ def generate_interview_question(selected_domain, difficulty="Medium"):
     """
 
     try:
-        response = client.chat.completions.create(
+        response = _create_completion(
             messages=[{"role": "user", "content": prompt}],
             model=MODEL_NAME,
             temperature=0.7,
@@ -88,7 +108,7 @@ def evaluate_interview_answer(user_name, question, user_answer):
     """
 
     try:
-        response = client.chat.completions.create(
+        response = _create_completion(
             messages=[{"role": "user", "content": prompt}],
             model=MODEL_NAME,
             temperature=0.7,
