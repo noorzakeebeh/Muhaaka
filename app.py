@@ -5,7 +5,7 @@ import os
 import datetime
 
 from audio_handler import transcribe_audio_bytes, TranscriptionError
-from llm_evaluator import generate_interview_question, evaluate_interview_answer, EvaluationError
+from llm_evaluator import generate_interview_question, generate_interview_questions_batch, evaluate_interview_answer, EvaluationError
 
 # ============================================================
 # PAGE CONFIG
@@ -73,6 +73,23 @@ def get_question(specialization: str, difficulty: str) -> str:
     except EvaluationError as e:
         st.error(f"❓ {e}")
         return "We couldn't generate a question right now — please try starting again."
+
+
+def get_questions_batch(specialization: str, difficulty: str, num_questions: int) -> list:
+    """
+    Generates ALL of this session's questions in a single LLM call (instead of
+    one call per question), so the model can see the whole batch and avoid
+    generating duplicate/near-duplicate questions.
+    """
+    try:
+        questions = generate_interview_questions_batch(specialization, difficulty, num_questions)
+        if not questions:
+            raise EvaluationError("No questions were returned.")
+        return questions
+    except EvaluationError as e:
+        st.error(f"❓ {e}")
+        fallback = "We couldn't generate a question right now — please try starting again."
+        return [fallback] * max(1, num_questions)
 
 
 def get_feedback(name: str, question: str, answer: str) -> dict:
@@ -654,12 +671,15 @@ defaults = {
     "difficulty": "Medium",
     "q_index": 0,
     "current_question": "",
+    "questions_list": [],  # all of this session's questions, generated in a single batch API call
     "current_feedback": None,  # dict from evaluate_interview_answer()
     "current_answer": "",
     "history": [],  # list of dicts: {question, answer, feedback}
     "logged_index": -1,  # guards against duplicate history entries on rerun
     "audio_key_seed": 0,  # bumped to force a fresh, empty audio_input widget
     "leaderboard_saved": False,  # guards against duplicate leaderboard entries on rerun
+    "transcribed_text": "",  # Whisper output shown to the user for confirmation before Submit
+    "transcribed_seed": -1,  # audio_key_seed value the transcribed_text belongs to
 }
 for key, value in defaults.items():
     if key not in st.session_state:
@@ -963,8 +983,11 @@ def page_home():
                     st.session_state.logged_index = -1
                     st.session_state.leaderboard_saved = False
                     st.session_state.audio_key_seed += 1
-                    with st.spinner("Preparing your first question..."):
-                        st.session_state.current_question = get_question(specialization, difficulty)
+                    with st.spinner("Preparing your questions..."):
+                        st.session_state.questions_list = get_questions_batch(
+                            specialization, difficulty, num_questions
+                        )
+                    st.session_state.current_question = st.session_state.questions_list[0]
                     st.session_state.page = "interview"
                     st.rerun()
 
@@ -1030,6 +1053,7 @@ def page_interview():
             audio_key = f"audio_{st.session_state.audio_key_seed}"
             audio_value = st.audio_input("Tap to record", label_visibility="collapsed", key=audio_key)
 
+            reviewed_text = ""
             if audio_value is None:
                 st.markdown(
                     "<div class='rec-status ready'>🎙️ Microphone ready — tap the button above and "
@@ -1046,6 +1070,22 @@ def page_interview():
                     st.session_state.audio_key_seed += 1
                     st.rerun()
 
+                # Transcribe once per recording (not on every rerun), then show the
+                # result so the candidate can confirm it before hitting Submit.
+                if st.session_state.transcribed_seed != st.session_state.audio_key_seed:
+                    with st.spinner("Transcribing your answer..."):
+                        st.session_state.transcribed_text = transcribe_audio(audio_value)
+                    st.session_state.transcribed_seed = st.session_state.audio_key_seed
+
+                st.markdown("**📝 We heard this from your recording — please confirm it's correct:**")
+                reviewed_text = st.text_area(
+                    "Transcribed answer",
+                    value=st.session_state.transcribed_text,
+                    label_visibility="collapsed",
+                    height=100,
+                    key=f"transcript_review_{st.session_state.audio_key_seed}",
+                )
+
             with st.expander("⌨️ Prefer to type your answer instead?"):
                 typed_answer = st.text_area("Your answer", label_visibility="collapsed", height=100)
 
@@ -1054,8 +1094,7 @@ def page_interview():
             if st.button("✅ Submit Answer", use_container_width=True):
                 answer_text = ""
                 if audio_value is not None:
-                    with st.spinner("Transcribing your answer..."):
-                        answer_text = transcribe_audio(audio_value)
+                    answer_text = reviewed_text.strip()
                 elif typed_answer.strip():
                     answer_text = typed_answer.strip()
 
@@ -1106,11 +1145,9 @@ def page_feedback():
                 else:
                     st.session_state.q_index += 1
                     st.session_state.audio_key_seed += 1  # fresh recorder for the next question
-                    with st.spinner("Preparing your next question..."):
-                        st.session_state.current_question = get_question(
-                            st.session_state.specialization,
-                            st.session_state.difficulty,
-                        )
+                    # Already generated in the single batch API call at the start
+                    # of the session — just move to the next stored question.
+                    st.session_state.current_question = st.session_state.questions_list[st.session_state.q_index]
                     st.session_state.page = "interview"
                 st.rerun()
 
