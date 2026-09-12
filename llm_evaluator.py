@@ -79,6 +79,86 @@ def generate_interview_question(selected_domain, difficulty="Medium"):
         raise EvaluationError("Something went wrong while generating the question.") from e
 
 
+def generate_interview_questions_batch(selected_domain, difficulty="Medium", num_questions=1):
+    """
+    Generates `num_questions` distinct interview questions in a SINGLE LLM
+    call, so the model sees the whole batch at once and can avoid repeating
+    or rephrasing the same idea twice. Returns a list of question strings.
+    """
+    difficulty_guidelines = {
+        "Easy": "Beginner level: basic concepts, definitions, and straightforward practical questions.",
+        "Medium": "Intermediate level: core concepts, practical scenarios, and common graduate interview questions.",
+        "Hard": "Advanced level: deeper technical reasoning, trade-offs, architecture, and complex practical scenarios.",
+    }
+    selected_difficulty = difficulty_guidelines.get(difficulty, difficulty_guidelines["Medium"])
+    num_questions = max(1, int(num_questions))
+
+    prompt = f"""
+    You are an expert technical interviewer at a tech career fair.
+    Generate a batch of real-world, frequently asked technical interview questions commonly used in actual job interviews for a university student or fresh graduate majoring in: {selected_domain}.
+
+    Difficulty & Style Guidelines:
+    - **Relevance**: Focus on real-world industry interview questions (core concepts, trade-offs, standard architectural/coding/system questions).
+    - **Difficulty**: {difficulty} — {selected_difficulty}
+    - **Length**: Each question must be answerable verbally in about 45 seconds (3-4 spoken sentences), since candidates get roughly 45 seconds to respond.
+
+    STRICT ANTI-DUPLICATION REQUIREMENTS FOR THIS BATCH:
+    1. Generate exactly {num_questions} question(s). Generate only the requested number of questions — not more, not fewer.
+    2. Each question must test a different concept, aspect, sub-topic, or piece of knowledge within {selected_domain}.
+    3. Do not repeat any question.
+    4. Do not paraphrase or slightly reword another question in this same batch — near-duplicate wording of the same idea is NOT allowed.
+    5. All questions in the batch must be meaningfully and substantively different from one another; do not let two questions test overlapping ground.
+    6. Return exactly {num_questions} question(s) in the JSON array below — no more, no fewer.
+    7. Write every question entirely in clear, professional English.
+
+    Output format:
+    Respond ONLY with a valid JSON object, no markdown, no commentary, no backticks, using exactly this structure:
+    {{
+      "questions": ["<question 1 text>", "<question 2 text>", ...]
+    }}
+    The "questions" array must contain exactly {num_questions} item(s), in the same plain-question format used elsewhere in this app (no numbering, no labels, no quotes inside the text).
+    """
+
+    try:
+        response = _create_completion(
+            messages=[{"role": "user", "content": prompt}],
+            model=MODEL_NAME,
+            temperature=0.7,
+            response_format={"type": "json_object"},
+        )
+    except APITimeoutError as e:
+        print(f"[Batch Question Generation Timeout]: {str(e)}")
+        raise EvaluationError("Question generation timed out. Please try again.") from e
+    except APIError as e:
+        print(f"[Batch Question Generation API Error]: {str(e)}")
+        raise EvaluationError("Could not generate questions right now. Please try again.") from e
+    except Exception as e:
+        print(f"[Batch Question Generation Error]: {str(e)}")
+        raise EvaluationError("Something went wrong while generating the questions.") from e
+
+    raw_text = response.choices[0].message.content.strip()
+    try:
+        data = json.loads(raw_text)
+        questions = [
+            q.strip() for q in data.get("questions", [])
+            if isinstance(q, str) and q.strip()
+        ]
+    except (json.JSONDecodeError, AttributeError) as e:
+        print(f"[Batch Question Generation JSON Parse Error]: {str(e)} | raw: {raw_text[:200]}")
+        questions = []
+
+    # Defensive guard: make sure exactly num_questions questions come back,
+    # even if the model slightly over/under-produces.
+    if len(questions) > num_questions:
+        questions = questions[:num_questions]
+    while len(questions) < num_questions:
+        # Rare fallback path only — the single-question generator already
+        # exists in this file and is reused here instead of duplicating logic.
+        questions.append(generate_interview_question(selected_domain, difficulty))
+
+    return questions
+
+
 def evaluate_interview_answer(user_name, question, user_answer):
     prompt = f"""
     You are an encouraging, fair, and professional technical interviewer evaluating a student at a tech event.
@@ -148,4 +228,3 @@ def evaluate_interview_answer(user_name, question, user_answer):
             "tips": ["Try using standard technical terms when explaining your thoughts."],
             "model_answer": "Focus on the core definitions clearly.",
         }
-
